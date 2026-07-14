@@ -1,0 +1,248 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "a2aa5ee8-12c0-4ef9-bca7-9b81b5d9c84a",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "cats": {
+      "name": "cats",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thumbnail_path": {
+          "name": "thumbnail_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "image_path": {
+          "name": "image_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "likes_count": {
+          "name": "likes_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_cats_likes": {
+          "name": "idx_cats_likes",
+          "columns": [
+            "likes_count"
+          ],
+          "isUnique": false
+        },
+        "idx_cats_created": {
+          "name": "idx_cats_created",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "comments": {
+      "name": "comments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "cat_id": {
+          "name": "cat_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_token": {
+          "name": "user_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_comments_cat": {
+          "name": "idx_comments_cat",
+          "columns": [
+            "cat_id",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "unique_comments_user": {
+          "name": "unique_comments_user",
+          "columns": [
+            "cat_id",
+            "user_token"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "comments_cat_id_cats_id_fk": {
+          "name": "comments_cat_id_cats_id_fk",
+          "tableFrom": "comments",
+          "tableTo": "cats",
+          "columnsFrom": [
+            "cat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "votes": {
+      "name": "votes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "cat_id": {
+          "name": "cat_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_token": {
+          "name": "user_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ip_ua_hash": {
+          "name": "ip_ua_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(datetime('now'))"
+        }
+      },
+      "indexes": {
+        "idx_votes_cat": {
+          "name": "idx_votes_cat",
+          "columns": [
+            "cat_id"
+          ],
+          "isUnique": false
+        },
+        "unique_votes_user_token": {
+          "name": "unique_votes_user_token",
+          "columns": [
+            "cat_id",
+            "user_token"
+          ],
+          "isUnique": true
+        },
+        "unique_votes_ip_ua_hash": {
+          "name": "unique_votes_ip_ua_hash",
+          "columns": [
+            "cat_id",
+            "ip_ua_hash"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "votes_cat_id_cats_id_fk": {
+          "name": "votes_cat_id_cats_id_fk",
+          "tableFrom": "votes",
+          "tableTo": "cats",
+          "columnsFrom": [
+            "cat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
