@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a2aa5ee8-12c0-4ef9-bca7-9b81b5d9c84a",
+  "id": "d297d02c-0644-42ad-a885-b217f30f4610",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "cats": {
@@ -56,14 +56,14 @@
         "idx_cats_likes": {
           "name": "idx_cats_likes",
           "columns": [
-            "likes_count"
+            "\"likes_count\" DESC"
           ],
           "isUnique": false
         },
         "idx_cats_created": {
           "name": "idx_cats_created",
           "columns": [
-            "created_at"
+            "\"created_at\" DESC"
           ],
           "isUnique": false
         }
@@ -243,6 +243,21 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "idx_cats_likes": {
+        "columns": {
+          "\"likes_count\" DESC": {
+            "isExpression": true
+          }
+        }
+      },
+      "idx_cats_created": {
+        "columns": {
+          "\"created_at\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

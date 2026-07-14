@@ -14,8 +14,8 @@ export const cats = sqliteTable(
       .default(sql`(datetime('now'))`),
   },
   (table) => [
-    index('idx_cats_likes').on(table.likesCount),
-    index('idx_cats_created').on(table.createdAt),
+    index('idx_cats_likes').on(sql`${table.likesCount} DESC`),
+    index('idx_cats_created').on(sql`${table.createdAt} DESC`),
   ],
 );
 

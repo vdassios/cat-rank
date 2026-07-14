@@ -7,8 +7,8 @@ CREATE TABLE `cats` (
 	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `idx_cats_likes` ON `cats` (`likes_count`);--> statement-breakpoint
-CREATE INDEX `idx_cats_created` ON `cats` (`created_at`);--> statement-breakpoint
+CREATE INDEX `idx_cats_likes` ON `cats` ("likes_count" DESC);--> statement-breakpoint
+CREATE INDEX `idx_cats_created` ON `cats` ("created_at" DESC);--> statement-breakpoint
 CREATE TABLE `comments` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`cat_id` integer NOT NULL,
