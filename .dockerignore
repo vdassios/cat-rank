@@ -1,0 +1,13 @@
+.git
+.github
+.astro
+node_modules
+dist
+data
+certbot
+public/uploads
+.env
+.env.*
+tasks
+*.md
+.DS_Store

@@ -1,0 +1,32 @@
+# --- Secrets / runtime config ---
+.env
+.env.local
+*.pem
+*.key
+openrouter_key.md
+*_key.md
+
+# --- Runtime data (lives outside the build; never committed) ---
+data/
+certbot/
+/var/lib/cat-ranking/
+
+# --- ONNX model (fetched + checksum-verified in CI, not in git) ---
+models/
+*.onnx
+
+# --- Dev-only seeded images (Task SEED; prod serves from the uploads volume) ---
+public/uploads/
+
+# --- Node / build output ---
+node_modules/
+dist/
+.astro/
+*.tsbuildinfo
+
+# --- Logs / OS / editor cruft ---
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/
