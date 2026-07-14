@@ -1,0 +1,34 @@
+{
+  "name": "cat-ranking",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && npm run build:scripts",
+    "build:scripts": "if ls scripts/*.ts >/dev/null 2>&1; then esbuild scripts/*.ts --bundle --platform=node --format=esm --packages=external --outdir=dist/scripts --out-extension:.js=.mjs; else echo 'no scripts/*.ts yet'; fi",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node dist/scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "astro": "^5",
+    "@astrojs/preact": "^4",
+    "@astrojs/node": "^9",
+    "preact": "^10",
+    "drizzle-orm": "^0.36",
+    "better-sqlite3": "^11",
+    "sharp": "^0.33",
+    "onnxruntime-node": "^1",
+    "cookie-signature": "^1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.28",
+    "@types/better-sqlite3": "^7",
+    "vitest": "^2",
+    "typescript": "^5",
+    "esbuild": "^0.24",
+    "@astrojs/check": "^0.9"
+  }
+}
