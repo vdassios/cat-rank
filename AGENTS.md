@@ -60,3 +60,6 @@ directory skeleton everything else writes into). After that, Tasks 01, 02, 03,
 - Node is pinned to `22`. Package manager is `npm` (`npm ci`).
 - `.env.example` and `.gitignore` already exist at the repo root — do not
   recreate them.
+- `src/env.d.ts` exists and is the canonical location for `App.Locals` type
+  augmentation (per Astro convention). Future agents adding to `locals` should
+  extend the interface there — not in middleware or elsewhere.
