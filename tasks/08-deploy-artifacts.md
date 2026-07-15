@@ -62,7 +62,7 @@ copy any artifact from V3.)
 - All images pinned per CONTRACTS §1 — no `:latest` anywhere.
 - certbot entrypoint renews with `--webroot -w /var/www/certbot` (initial cert
   is issued standalone before the stack first starts — Task 12's checklist;
-  a standalone *renewal* would collide with nginx on port 80).
+  a standalone _renewal_ would collide with nginx on port 80).
 - For local builds a developer can swap `image:` for
   `build: { context: ., dockerfile: deploy/Dockerfile }` — add this as a
   commented alternative, do not enable both.
@@ -89,6 +89,7 @@ grep -q 'bookworm-slim' deploy/Dockerfile
 ! grep -q 'set_real_ip_from' deploy/nginx.conf
 ! grep -qi 'X-Forwarded-For' deploy/nginx.conf
 ```
+
 (If Docker isn't available in your environment, `docker compose config` is
 optional; at minimum confirm YAML validity, that every `${VAR}` used appears in
 CONTRACTS §3 or has a fixed value, and that the grep checks pass.) Report what

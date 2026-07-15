@@ -34,6 +34,7 @@ current top cat** (highest `likes_count`, tiebreak `id ASC`), paginate
 `nextPage` = `page+1` when a full page returned else `null`.
 
 **`/api/cats` POST** — multipart (`image`, `name`):
+
 1. `checkOrigin` → 403 if false.
 2. Guards in the exact order of CONTRACTS §9 (size → mime → ext → svg → cat),
    each returning `400` + the exact body string.
@@ -57,6 +58,7 @@ return the updated `LikeButton` (idempotent — already-liked returns the liked
 button, no double count).
 
 **`/api/cats/[id]/comments`**
+
 - GET: page of comments `created_at ASC`, 10/page → `CommentList` fragment.
 - POST: `checkOrigin` → 403; validate per §9 (empty / >500 / duplicate) with
   exact error strings; sanitize (`replace(/<[^>]*>/g,'').trim()`); insert;
@@ -75,7 +77,9 @@ button, no double count).
 ```
 npm run build
 ```
+
 Then with a running dev server + a seeded cat (insert one row manually):
+
 - `GET /health` → `{"status":"ok"}`.
 - `GET /api/cats` → grid HTML.
 - `POST /api/cats` with a non-image → `400 Unsupported format`.

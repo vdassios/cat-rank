@@ -28,6 +28,14 @@ isolated subtasks so multiple agents can work independently.
   specified, even if not yet written.
 - **No new dependencies** beyond `CONTRACTS.md` §11 without flagging it in your
   report.
+- **Use the repository formatter and linter.** Prettier, ESLint, and their
+  plugins are pinned in `package.json`; never use globally installed or
+  different versions. Before finishing, run
+  `npx prettier --write <files you created or modified>` only on files owned by
+  your task, then run `npm run format:check`, `npm run lint`, and
+  `npm run lint:format-compat`. Do not override or bypass the repository
+  formatter, linter, or ignore files. The Prettier compatibility config must
+  remain last in the ESLint configuration.
 - **Finish with the acceptance check** at the bottom of your task file. Run it
   and report pass/fail honestly.
 

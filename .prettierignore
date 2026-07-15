@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+data/
+models/
+public/uploads/
+public/htmx.min.js
+drizzle/migrations/meta/
+*.onnx
+*.min.*

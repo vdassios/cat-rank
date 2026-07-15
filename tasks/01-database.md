@@ -48,9 +48,11 @@ and a migration runner script.
 ## Generate migrations
 
 After writing the schema:
+
 ```
 npm run db:generate   # drizzle-kit generate → drizzle/migrations/*.sql
 ```
+
 Commit the generated SQL.
 
 ## Constraints
@@ -68,4 +70,5 @@ sqlite3 ./data/test.db ".tables"      # cats, comments, votes
 sqlite3 ./data/test.db "PRAGMA wal_autocheckpoint;"   # 0
 rm ./data/test.db*
 ```
+
 Report: tables created, `wal_autocheckpoint` is 0, migrate exits 0.

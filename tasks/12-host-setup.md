@@ -2,7 +2,7 @@
 
 **Goal:** make the VPS bootstrap executable instead of prose: an idempotent
 provisioning script plus an ordered first-deploy checklist. Everything the
-master plan's Phase 7 needs that is *not* a container artifact lives here.
+master plan's Phase 7 needs that is _not_ a container artifact lives here.
 
 **Prereqs:** 08, 09, 10 (this task references their artifacts by name; it does
 not modify them). **Read first:** master plan `CAT_RANKING_PLAN_V4.md`
@@ -23,7 +23,7 @@ not modify them). **Read first:** master plan `CAT_RANKING_PLAN_V4.md`
 2. **Firewall (UFW):** default deny incoming; allow `22/tcp`, `80/tcp`,
    `443/tcp`; enable non-interactively (`ufw --force enable`).
 3. **SSH hardening:** `PasswordAuthentication no`, `PermitRootLogin
-   prohibit-password` in a drop-in under `/etc/ssh/sshd_config.d/`; reload sshd.
+prohibit-password` in a drop-in under `/etc/ssh/sshd_config.d/`; reload sshd.
    Do NOT lock out the current session (apply only if an authorized key exists
    for the deploy user).
 4. **Deploy user:** create `deploy` (no password, `docker` group) if missing;
@@ -90,6 +90,7 @@ configured host must be a no-op plus the summary).
 bash -n deploy/provision.sh
 test -x deploy/provision.sh
 ```
+
 Then confirm `FIRST_DEPLOY.md` covers, in order: DNS(A-only) → provision →
 `.env` → registry/repo access → standalone cert → `up -d` + migrate → health →
 monitoring registration → restore drill → rollback note. Report the checklist

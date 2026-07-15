@@ -22,9 +22,16 @@ ambiguity or make design decisions.
    Do not implement it yourself.
 5. **No new dependencies** beyond those in `CONTRACTS.md` → "Dependencies"
    without saying so explicitly in your final report.
-6. **Finish with the acceptance check.** Each task ends with a verification
+6. **Use the repository formatter and linter.** Use only the exact tool
+   versions pinned in `package.json`. Before finishing, run
+   `npx prettier --write <files you created or modified>` only on files owned by
+   your task, then run `npm run format:check`, `npm run lint`, and
+   `npm run lint:format-compat`; never override or bypass their configurations
+   or ignore files. Keep the Prettier compatibility config last in the ESLint
+   configuration.
+7. **Finish with the acceptance check.** Each task ends with a verification
    command or checklist. Run/confirm it. Report pass/fail honestly.
-7. **If something is missing or ambiguous, stop and report it.** Do not guess.
+8. **If something is missing or ambiguous, stop and report it.** Do not guess.
 
 ## Execution order & dependencies
 
@@ -54,22 +61,22 @@ interfaces before those are implemented.
 
 ## Task list
 
-| # | Task | Owns | Prereqs |
-|---|---|---|---|
-| 00 | [Project scaffold](./00-scaffold.md) | configs, dir skeleton, htmx, `.dockerignore` | — |
-| 01 | [Database layer](./01-database.md) | `src/db/*`, migrations | 00 |
-| 02 | [Auth & security](./02-auth-security.md) | `src/lib/{auth,csrf,semaphore,rateLimit}.ts`, `src/middleware.ts` | 00 |
-| 03 | [Image validation](./03-image-validation.md) | `src/validation/*` | 00 |
-| 04 | [Image processing](./04-image-processing.md) | `src/lib/images.ts` | 00 |
-| 05 | [API routes](./05-api-routes.md) | `src/pages/api/*`, `src/pages/health.ts` | 00,01,02,03,04 |
-| 06 | [UI components](./06-ui-components.md) | `src/components/*`, `src/pages/index.astro` | 00 |
-| 07 | [Frontend JS](./07-frontend-js.md) | `src/scripts/ui.ts` | 06 |
-| 08 | [Deploy artifacts](./08-deploy-artifacts.md) | `docker-compose.yml` (**repo root**), `deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh}` | 00 |
-| 09 | [CI/CD](./09-cicd.md) | `.github/workflows/deploy.yml`, `scripts/fetch-model.sh` | 00 |
-| 10 | [Backup scripts](./10-backup-scripts.md) | `deploy/{backup-images,restore-images,verify-backup}.sh` | 00 |
-| 11 | [Tests](./11-tests.md) | `tests/*` | 01,02,03,05 |
-| 12 | [Host setup](./12-host-setup.md) | `deploy/provision.sh`, `deploy/FIRST_DEPLOY.md` | 08,09,10 |
-| — | [Sample data (dev only)](./SEED.md) | `scripts/seed.ts` | 01 |
+| #   | Task                                         | Owns                                                                                                | Prereqs        |
+| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------- |
+| 00  | [Project scaffold](./00-scaffold.md)         | configs, dir skeleton, htmx, `.dockerignore`                                                        | —              |
+| 01  | [Database layer](./01-database.md)           | `src/db/*`, migrations                                                                              | 00             |
+| 02  | [Auth & security](./02-auth-security.md)     | `src/lib/{auth,csrf,semaphore,rateLimit}.ts`, `src/middleware.ts`                                   | 00             |
+| 03  | [Image validation](./03-image-validation.md) | `src/validation/*`                                                                                  | 00             |
+| 04  | [Image processing](./04-image-processing.md) | `src/lib/images.ts`                                                                                 | 00             |
+| 05  | [API routes](./05-api-routes.md)             | `src/pages/api/*`, `src/pages/health.ts`                                                            | 00,01,02,03,04 |
+| 06  | [UI components](./06-ui-components.md)       | `src/components/*`, `src/pages/index.astro`                                                         | 00             |
+| 07  | [Frontend JS](./07-frontend-js.md)           | `src/scripts/ui.ts`                                                                                 | 06             |
+| 08  | [Deploy artifacts](./08-deploy-artifacts.md) | `docker-compose.yml` (**repo root**), `deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh}` | 00             |
+| 09  | [CI/CD](./09-cicd.md)                        | `.github/workflows/deploy.yml`, `scripts/fetch-model.sh`                                            | 00             |
+| 10  | [Backup scripts](./10-backup-scripts.md)     | `deploy/{backup-images,restore-images,verify-backup}.sh`                                            | 00             |
+| 11  | [Tests](./11-tests.md)                       | `tests/*`                                                                                           | 01,02,03,05    |
+| 12  | [Host setup](./12-host-setup.md)             | `deploy/provision.sh`, `deploy/FIRST_DEPLOY.md`                                                     | 08,09,10       |
+| —   | [Sample data (dev only)](./SEED.md)          | `scripts/seed.ts`                                                                                   | 01             |
 
 > `.env.example` and `.gitignore` already exist at the repo root — do not
 > recreate them.

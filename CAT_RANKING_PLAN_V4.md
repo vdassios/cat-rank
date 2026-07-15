@@ -8,6 +8,7 @@
 ## Changes vs V3 (delta)
 
 **Fatal-on-first-deploy fixes:**
+
 1. Base image `node:22-alpine` → **`node:22-bookworm-slim`** — `onnxruntime-node`
    ships glibc-only binaries (fails to load on musl) and `better-sqlite3` has no
    musl prebuilds; the Alpine builder also had no compiler toolchain, so `npm ci`
@@ -33,9 +34,10 @@
    now **POSIX `sh`**.
 
 **Security fixes:**
+
 - Client IP is taken **only from `X-Real-IP`** (nginx sets it to
-  `$remote_addr`, overwriting anything the client sent). V3 took the *first*
-  hop of `X-Forwarded-For`, which nginx *appends* to — a spoofed
+  `$remote_addr`, overwriting anything the client sent). V3 took the _first_
+  hop of `X-Forwarded-For`, which nginx _appends_ to — a spoofed
   `X-Forwarded-For` header fully controlled `clientIp`, defeating the
   `ip_ua_hash` vote dedupe and app rate limiting. The pointless
   `set_real_ip_from` block is removed (nginx **is** the edge).
@@ -51,6 +53,7 @@
   `/htmx.min.js` locations.
 
 **Operational fixes:**
+
 - `depends_on` inverted: **litestream waits for the app to be healthy**
   (health ⇒ DB writable ⇒ restore finished). V3 had the app wait on litestream,
   letting the replicator start against a missing/half-restored DB.
@@ -83,53 +86,53 @@
 
 ## Locked decisions
 
-| Topic | Decision |
-|---|---|
-| Runtime | Docker Compose (**file at repo root**), `restart: always` |
-| Base image | `node:22-bookworm-slim` (glibc — `onnxruntime-node` has no musl build) |
-| CI/CD | GitHub Actions → build image → push to GHCR → ssh: pull → **migrate → up** |
-| Rollback | `IMAGE_TAG` pinned in `.env` by CI; rollback = old sha + `up -d` |
-| Native deps | Compiled in multi-stage Dockerfile (never copied from macOS; `.dockerignore` enforces) |
-| ONNX delivery | Baked into image layer from **`models/`** (not `public/` — Astro would publish it), SHA-256 verified in CI |
-| HTMX delivery | `public/htmx.min.js`, pinned + SRI — Astro build copies it into `dist/client/` |
-| Litestream binary | `COPY --from=litestream/litestream:0.3.13` (not in any distro repo) |
-| Uploads path | `/var/lib/cat-ranking/uploads` (named volume, outside the build) |
-| Uploads serving | nginx serves `/uploads/*` **directly from disk volume** (Node never in the byte path) |
-| Reverse proxy | nginx (Docker, pinned `1.27-alpine`) |
-| TLS | Initial cert `certbot --standalone` (pre-compose); renewals `certbot renew --webroot` every 12h |
-| DB backup | Litestream → R2, continuous WAL, `wal_autocheckpoint=0` |
-| Image backup | `rclone copy` with `--backup-dir` archival — **never `sync`** |
-| Backup verification | Nightly `litestream restore` + `PRAGMA integrity_check` + dead-man ping |
-| Self-healing | App entrypoint litestream-restores DB if missing; litestream replicates only after app is healthy |
-| Client IP | **`X-Real-IP` only** (nginx-controlled); `X-Forwarded-For` is never trusted |
-| Anti-abuse | Signed cookie + IP+UA hash (dual dedupe) |
-| Rate limiting | nginx `limit_req_zone` + app fallback; `/health` included |
-| CSRF | `SameSite=Lax` cookie **+ Origin/Referer allowlist check** |
-| CSP | Strict `Content-Security-Policy`, no inline, no CDN; + HSTS |
-| ONNX concurrency | App-level semaphore (max 2 concurrent inferences) |
-| Health check | Verifies DB **writable** + uploads dir present (not just connected) |
-| Host hardening | Task 12: `deploy/provision.sh` (firewall 22/80/443, SSH key-only, fail2ban, unattended-upgrades) |
-| Monitoring | UptimeRobot + healthchecks.io dead-man's-switch |
-| Comment model | 1 comment per user per cat |
-| Like model | One-way likes (no unlike) |
-| Originals | Discarded immediately after processing |
+| Topic               | Decision                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Runtime             | Docker Compose (**file at repo root**), `restart: always`                                                  |
+| Base image          | `node:22-bookworm-slim` (glibc — `onnxruntime-node` has no musl build)                                     |
+| CI/CD               | GitHub Actions → build image → push to GHCR → ssh: pull → **migrate → up**                                 |
+| Rollback            | `IMAGE_TAG` pinned in `.env` by CI; rollback = old sha + `up -d`                                           |
+| Native deps         | Compiled in multi-stage Dockerfile (never copied from macOS; `.dockerignore` enforces)                     |
+| ONNX delivery       | Baked into image layer from **`models/`** (not `public/` — Astro would publish it), SHA-256 verified in CI |
+| HTMX delivery       | `public/htmx.min.js`, pinned + SRI — Astro build copies it into `dist/client/`                             |
+| Litestream binary   | `COPY --from=litestream/litestream:0.3.13` (not in any distro repo)                                        |
+| Uploads path        | `/var/lib/cat-ranking/uploads` (named volume, outside the build)                                           |
+| Uploads serving     | nginx serves `/uploads/*` **directly from disk volume** (Node never in the byte path)                      |
+| Reverse proxy       | nginx (Docker, pinned `1.27-alpine`)                                                                       |
+| TLS                 | Initial cert `certbot --standalone` (pre-compose); renewals `certbot renew --webroot` every 12h            |
+| DB backup           | Litestream → R2, continuous WAL, `wal_autocheckpoint=0`                                                    |
+| Image backup        | `rclone copy` with `--backup-dir` archival — **never `sync`**                                              |
+| Backup verification | Nightly `litestream restore` + `PRAGMA integrity_check` + dead-man ping                                    |
+| Self-healing        | App entrypoint litestream-restores DB if missing; litestream replicates only after app is healthy          |
+| Client IP           | **`X-Real-IP` only** (nginx-controlled); `X-Forwarded-For` is never trusted                                |
+| Anti-abuse          | Signed cookie + IP+UA hash (dual dedupe)                                                                   |
+| Rate limiting       | nginx `limit_req_zone` + app fallback; `/health` included                                                  |
+| CSRF                | `SameSite=Lax` cookie **+ Origin/Referer allowlist check**                                                 |
+| CSP                 | Strict `Content-Security-Policy`, no inline, no CDN; + HSTS                                                |
+| ONNX concurrency    | App-level semaphore (max 2 concurrent inferences)                                                          |
+| Health check        | Verifies DB **writable** + uploads dir present (not just connected)                                        |
+| Host hardening      | Task 12: `deploy/provision.sh` (firewall 22/80/443, SSH key-only, fail2ban, unattended-upgrades)           |
+| Monitoring          | UptimeRobot + healthchecks.io dead-man's-switch                                                            |
+| Comment model       | 1 comment per user per cat                                                                                 |
+| Like model          | One-way likes (no unlike)                                                                                  |
+| Originals           | Discarded immediately after processing                                                                     |
 
 ---
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Astro (SSR) with `@astrojs/node` adapter (standalone) |
-| Islands | Preact (`@astrojs/preact`) — used sparingly |
-| Interactions | HTMX (self-hosted `/htmx.min.js`, pinned + SRI, 14KB) — likes, pagination, form submits, modal loads, comment posting |
-| DB | SQLite + `better-sqlite3` + `drizzle-orm` (WAL mode, `wal_autocheckpoint=0`) |
-| Image pipeline | Sharp (auto-rotate via EXIF → resize → WebP, strips metadata, pixel-limit on) |
-| Image validation | ONNX Runtime + MobileNetV2 quantized (~14MB model) — hard-rejects non-cats |
-| Image storage | Named volume `/var/lib/cat-ranking/uploads` |
-| Auth | Signed UUID cookie (`user_token`, HMAC) — `HttpOnly; Secure; SameSite=Lax`. No accounts (initially) |
-| Anti-abuse | nginx + app per-IP rate limiting + `IP+UA` hash secondary vote-dedupe key |
-| Deployment | Hetzner CX22 VPS (2 vCPUs x86, 4GB RAM, 40GB SSD, 20TB transfer) |
+| Layer            | Choice                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Framework        | Astro (SSR) with `@astrojs/node` adapter (standalone)                                                                 |
+| Islands          | Preact (`@astrojs/preact`) — used sparingly                                                                           |
+| Interactions     | HTMX (self-hosted `/htmx.min.js`, pinned + SRI, 14KB) — likes, pagination, form submits, modal loads, comment posting |
+| DB               | SQLite + `better-sqlite3` + `drizzle-orm` (WAL mode, `wal_autocheckpoint=0`)                                          |
+| Image pipeline   | Sharp (auto-rotate via EXIF → resize → WebP, strips metadata, pixel-limit on)                                         |
+| Image validation | ONNX Runtime + MobileNetV2 quantized (~14MB model) — hard-rejects non-cats                                            |
+| Image storage    | Named volume `/var/lib/cat-ranking/uploads`                                                                           |
+| Auth             | Signed UUID cookie (`user_token`, HMAC) — `HttpOnly; Secure; SameSite=Lax`. No accounts (initially)                   |
+| Anti-abuse       | nginx + app per-IP rate limiting + `IP+UA` hash secondary vote-dedupe key                                             |
+| Deployment       | Hetzner CX22 VPS (2 vCPUs x86, 4GB RAM, 40GB SSD, 20TB transfer)                                                      |
 
 > **Native modules** (`better-sqlite3`, `sharp`, `onnxruntime-node`) compile or
 > unpack their prebuilds inside the Docker image on **Debian (glibc)**. Never
@@ -180,6 +183,7 @@
 ## Why the contested choices
 
 ### Docker over systemd-native
+
 - **Reproducibility:** the entire runtime (nginx, certbot, litestream, rclone,
   app + native deps) is pinned in images — no host drift.
 - **Recovery:** a fresh CX22 + `git clone` + `.env` + `docker compose up -d`
@@ -189,6 +193,7 @@
   building in CI and pulling a prebuilt image (see CI/CD).
 
 ### Debian slim over Alpine
+
 - `onnxruntime-node` ships **glibc-only** native binaries; there is no musl
   build. On Alpine it fails at require-time.
 - `better-sqlite3` has no musl prebuilds → compiles from source, which needs
@@ -197,6 +202,7 @@
   14 MB model and `onnxruntime-node` itself, and everything Just Works.
 
 ### Model baked into the image (not git, not runtime download, not `public/`)
+
 - Bundling 14MB in git permanently bloats history.
 - Downloading at boot adds a runtime network dependency + first-boot latency.
 - Putting it in `public/` (V3) publishes it at a URL and duplicates it in the
@@ -206,6 +212,7 @@
   layer-cached, offline at runtime, zero git bloat, never served.
 
 ### Uploads served from disk
+
 - nginx `alias` to the uploads volume means Node never streams image bytes.
 - HTMX ships via `public/` → `dist/client/` (Astro copies it; no extra
   Dockerfile step, no phantom volume mounted into nginx).
@@ -216,16 +223,16 @@
 
 ### Components & cost
 
-| Component | Where | Cost |
-|---|---|---|
-| App server | Hetzner CX22 | ~€4.00/mo |
-| IPv4 address | Hetzner | ~€0.50/mo |
-| DB backup | Litestream → Cloudflare R2 | $0 (free tier) |
-| Image backup | rclone copy → Cloudflare R2 | $0 (free tier) |
-| Uptime monitoring | UptimeRobot | $0 (free tier) |
-| Backup verification | healthchecks.io | $0 (free tier) |
-| Container registry | GHCR (public image) | $0 |
-| **Total** | | **~€4.50–5/mo** |
+| Component           | Where                       | Cost            |
+| ------------------- | --------------------------- | --------------- |
+| App server          | Hetzner CX22                | ~€4.00/mo       |
+| IPv4 address        | Hetzner                     | ~€0.50/mo       |
+| DB backup           | Litestream → Cloudflare R2  | $0 (free tier)  |
+| Image backup        | rclone copy → Cloudflare R2 | $0 (free tier)  |
+| Uptime monitoring   | UptimeRobot                 | $0 (free tier)  |
+| Backup verification | healthchecks.io             | $0 (free tier)  |
+| Container registry  | GHCR (public image)         | $0              |
+| **Total**           |                             | **~€4.50–5/mo** |
 
 > GHCR note: the plan assumes a **public** image (free, no VPS login). If the
 > repo/image is private, the VPS additionally needs a one-time
@@ -240,8 +247,8 @@ runbook works from `/opt/cat-ranking`, and all relative mounts resolve there.
 x-logging: &logging
   driver: json-file
   options:
-    max-size: "10m"
-    max-file: "3"
+    max-size: '10m'
+    max-file: '3'
 
 services:
   app:
@@ -253,7 +260,7 @@ services:
     restart: always
     logging: *logging
     expose:
-      - "3000"
+      - '3000'
     volumes:
       - ./data:/app/data
       - uploads:/var/lib/cat-ranking/uploads
@@ -271,7 +278,7 @@ services:
       - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -288,7 +295,7 @@ services:
     environment:
       - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-    command: ["replicate"]
+    command: ['replicate']
     depends_on:
       app:
         # App health requires a writable DB, i.e. the entrypoint restore is
@@ -300,8 +307,8 @@ services:
     restart: always
     logging: *logging
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - uploads:/var/www/uploads:ro
@@ -568,14 +575,14 @@ http {
 > **Client-IP rule (app side):** the app trusts **only `X-Real-IP`** — nginx
 > always sets it to `$remote_addr`, so a client can't influence it.
 > `X-Forwarded-For` is deliberately not forwarded/trusted: nginx's
-> `$proxy_add_x_forwarded_for` *appends* to whatever the client sent, so its
+> `$proxy_add_x_forwarded_for` _appends_ to whatever the client sent, so its
 > first hop is attacker-controlled.
 
 ### `deploy/litestream.yml`
 
 ```yaml
 dbs:
-  - path: /app/data/cats.db      # must equal DATABASE_PATH in BOTH containers
+  - path: /app/data/cats.db # must equal DATABASE_PATH in BOTH containers
     replicas:
       - type: s3
         bucket: cat-ranking
@@ -586,7 +593,7 @@ dbs:
         secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
         sync-interval: 1s
         snapshot-interval: 6h
-        retention: 168h            # 7 days of point-in-time recovery
+        retention: 168h # 7 days of point-in-time recovery
         retention-check-interval: 1h
 ```
 
@@ -778,12 +785,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: npm }   # pin: must match the Dockerfile
+        with: { node-version: '22', cache: npm } # pin: must match the Dockerfile
       - run: npm ci
       - run: npm run lint --if-present
       - run: npm run typecheck --if-present
-      - run: npm test            # dedupe txn + validation guards (see Testing)
-      - run: ./scripts/fetch-model.sh   # curl + sha256sum --check → models/ (in build context)
+      - run: npm test # dedupe txn + validation guards (see Testing)
+      - run: ./scripts/fetch-model.sh # curl + sha256sum --check → models/ (in build context)
         env:
           MODEL_URL: ${{ secrets.MODEL_URL }}
           MODEL_SHA256: ${{ secrets.MODEL_SHA256 }}
@@ -894,19 +901,19 @@ UptimeRobot + two healthchecks.io checks → perform one restore drill.
 
 ### Guards (enforced before ONNX, fail fast)
 
-| Check | Limit | Action |
-|---|---|---|
-| File size | ≤ 10 MB (nginx edge + app) | Reject "File too large (max 10MB)" |
-| Magic bytes | `ffd8ff` (JPEG), `89504e47` (PNG), `52494646`+`WEBP` | Reject "Unsupported format" |
-| Extension | `.jpg`, `.jpeg`, `.png`, `.webp` | Reject "Unsupported file type" |
-| SVG | Forbidden (XSS risk) | Reject "SVG files not allowed" |
-| Decompression bomb | Sharp `limitInputPixels` (default on) | Reject oversized canvases |
+| Check              | Limit                                                | Action                             |
+| ------------------ | ---------------------------------------------------- | ---------------------------------- |
+| File size          | ≤ 10 MB (nginx edge + app)                           | Reject "File too large (max 10MB)" |
+| Magic bytes        | `ffd8ff` (JPEG), `89504e47` (PNG), `52494646`+`WEBP` | Reject "Unsupported format"        |
+| Extension          | `.jpg`, `.jpeg`, `.png`, `.webp`                     | Reject "Unsupported file type"     |
+| SVG                | Forbidden (XSS risk)                                 | Reject "SVG files not allowed"     |
+| Decompression bomb | Sharp `limitInputPixels` (default on)                | Reject oversized canvases          |
 
 ### Magic byte validation
 
 ```ts
 const MAGIC: Record<string, string> = {
-  'ffd8ff': 'image/jpeg',
+  ffd8ff: 'image/jpeg',
   '89504e47': 'image/png',
   '52494646': 'image/webp',
 };
@@ -935,9 +942,9 @@ const sem = new Semaphore(2);
 
 export async function validateCat(buf: Buffer): Promise<boolean> {
   return sem.run(async () => {
-    const input = await toTensor224(buf);      // resize to 224×224 temp
+    const input = await toTensor224(buf); // resize to 224×224 temp
     const probs = await session.run(input);
-    return sumCatClasses(probs) >= THRESHOLD;  // sum ~5 ImageNet cat classes
+    return sumCatClasses(probs) >= THRESHOLD; // sum ~5 ImageNet cat classes
   });
 }
 ```
@@ -952,12 +959,12 @@ export async function validateCat(buf: Buffer): Promise<boolean> {
 
 ### Output specs
 
-| Output | Spec | ~Size |
-|---|---|---|
-| Thumbnail | 300px width, WebP 80% | 15–25 KB |
-| Full | 1200px max side, WebP 85% | 60–120 KB |
-| Validation temp | 224×224 (MobileNet input) | discarded |
-| Original | Discarded immediately after validation | — |
+| Output          | Spec                                   | ~Size     |
+| --------------- | -------------------------------------- | --------- |
+| Thumbnail       | 300px width, WebP 80%                  | 15–25 KB  |
+| Full            | 1200px max side, WebP 85%              | 60–120 KB |
+| Validation temp | 224×224 (MobileNet input)              | discarded |
+| Original        | Discarded immediately after validation | —         |
 
 - Sharp `.rotate()` honors EXIF orientation (otherwise sideways images).
 - Sharp strips EXIF/GPS metadata by default (privacy) — do **not** `withMetadata()`.
@@ -1043,7 +1050,10 @@ db.transaction(() => {
     if (e.code === 'SQLITE_CONSTRAINT') return { success: false, reason: 'already_liked' };
     throw e;
   }
-  db.update(cats).set({ likesCount: sql`likes_count + 1` }).where(eq(cats.id, catId)).run();
+  db.update(cats)
+    .set({ likesCount: sql`likes_count + 1` })
+    .where(eq(cats.id, catId))
+    .run();
   return { success: true };
 })();
 ```
@@ -1065,12 +1075,19 @@ import crypto from 'node:crypto';
 
 const HMAC_SECRET = process.env.HMAC_SECRET!;
 
-export function issueToken(): string { return crypto.randomUUID(); }
-export function signToken(token: string): string { return sign(token, HMAC_SECRET); }
-export function verifyToken(signed: string): string | false { return unsign(signed, HMAC_SECRET); }
+export function issueToken(): string {
+  return crypto.randomUUID();
+}
+export function signToken(token: string): string {
+  return sign(token, HMAC_SECRET);
+}
+export function verifyToken(signed: string): string | false {
+  return unsign(signed, HMAC_SECRET);
+}
 ```
 
 Cookie attributes:
+
 - `HttpOnly` — JS cannot read it
 - `Secure` — HTTPS only
 - `SameSite=Lax` — CSRF mitigation
@@ -1084,8 +1101,7 @@ Cookie attributes:
 // anything the client sent — it is the only trustworthy source.
 // NEVER read X-Forwarded-For: nginx appends to the client-supplied value, so
 // its first hop is attacker-controlled (spoofable dedupe + rate limits).
-const clientIp = request.headers.get('x-real-ip')
-  ?? /* dev fallback: */ connectionRemoteAddress;
+const clientIp = request.headers.get('x-real-ip') ?? /* dev fallback: */ connectionRemoteAddress;
 ```
 
 ### IP+UA hash (secondary dedupe key)
@@ -1130,17 +1146,17 @@ try {
 
 ## API Routes
 
-| Route | Method | Purpose |
-|---|---|---|
-| `/` | GET | Main page shell (hero + grid + sidebar) |
-| `/api/cats` | GET | Grid HTML fragment (cards + sentinel). Params `page`, `limit`. Top cat excluded. `created_at DESC` |
-| `/api/cats` | POST | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → insert → Sharp (row deleted on failure) → `HX-Redirect: /` |
-| `/api/submit-form` | GET | Submit modal content (form fragment) |
-| `/api/cats/[id]` | GET | Modal fragment: full image, like button state, first 10 comments + sentinel, comment form or "already commented" |
-| `/api/cats/[id]/like` | POST | Rate-limited. Record vote (txn), return updated like button HTML. Idempotent on repeat |
-| `/api/cats/[id]/comments` | GET | Next page of comments + sentinel. `?page=N`, 10/page, `created_at ASC` |
-| `/api/cats/[id]/comments` | POST | Rate-limited. Validate (≤500 chars, non-empty, not already commented), sanitize, insert, return updated list + replace form with "comment posted" |
-| `/health` | GET | 200 only if DB writable + uploads dir present |
+| Route                     | Method | Purpose                                                                                                                                           |
+| ------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                       | GET    | Main page shell (hero + grid + sidebar)                                                                                                           |
+| `/api/cats`               | GET    | Grid HTML fragment (cards + sentinel). Params `page`, `limit`. Top cat excluded. `created_at DESC`                                                |
+| `/api/cats`               | POST   | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → insert → Sharp (row deleted on failure) → `HX-Redirect: /`         |
+| `/api/submit-form`        | GET    | Submit modal content (form fragment)                                                                                                              |
+| `/api/cats/[id]`          | GET    | Modal fragment: full image, like button state, first 10 comments + sentinel, comment form or "already commented"                                  |
+| `/api/cats/[id]/like`     | POST   | Rate-limited. Record vote (txn), return updated like button HTML. Idempotent on repeat                                                            |
+| `/api/cats/[id]/comments` | GET    | Next page of comments + sentinel. `?page=N`, 10/page, `created_at ASC`                                                                            |
+| `/api/cats/[id]/comments` | POST   | Rate-limited. Validate (≤500 chars, non-empty, not already commented), sanitize, insert, return updated list + replace form with "comment posted" |
+| `/health`                 | GET    | 200 only if DB writable + uploads dir present                                                                                                     |
 
 ### Cross-cutting concerns
 
@@ -1154,28 +1170,28 @@ try {
 
 ## Security considerations
 
-| Concern | Mitigation |
-|---|---|
-| XSS via image metadata | Sharp strips EXIF by default |
-| XSS via SVG | Reject SVG uploads |
-| XSS via comments | Server-side HTML-tag strip + Astro auto-escape + strict CSP |
-| Inline-script injection | CSP `script-src 'self'` (HTMX self-hosted, no inline) |
-| Path traversal | Use DB ID as filename |
-| **IP spoofing (dedupe/rate-limit bypass)** | App trusts only nginx-set `X-Real-IP`; XFF never read |
-| DoS via upload size | nginx `client_max_body_size 10M` (edge) + app |
-| DoS via rapid uploads | nginx rate limit + app per-IP + IP/UA dedupe |
-| DoS via ONNX CPU | Inference semaphore (max 2 concurrent) |
-| DoS via `/health` DB writes | nginx rate limit on `/health` |
-| Decompression bomb | Sharp `limitInputPixels` |
-| CSRF | `SameSite=Lax` cookie + Origin/Referer check |
-| Cookie tampering | HMAC signature |
-| Vote manipulation | Dual dedupe (token + IP/UA) |
-| Downgrade attacks | HSTS (1 year) |
-| Supply chain (HTMX) | Self-hosted, pinned + SRI; CSP blocks CDNs |
-| Supply chain (model) | SHA-256 verified in CI; never served (`models/`, not `public/`) |
-| Secret/data leakage into image | `.dockerignore` excludes `.env*`, `data/`, `.git` |
-| Host compromise | Firewall, SSH key-only, fail2ban, unattended-upgrades (provision.sh) |
-| Secret loss | HMAC + R2 keys in 0600 `.env`, backed up out-of-band |
+| Concern                                    | Mitigation                                                           |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| XSS via image metadata                     | Sharp strips EXIF by default                                         |
+| XSS via SVG                                | Reject SVG uploads                                                   |
+| XSS via comments                           | Server-side HTML-tag strip + Astro auto-escape + strict CSP          |
+| Inline-script injection                    | CSP `script-src 'self'` (HTMX self-hosted, no inline)                |
+| Path traversal                             | Use DB ID as filename                                                |
+| **IP spoofing (dedupe/rate-limit bypass)** | App trusts only nginx-set `X-Real-IP`; XFF never read                |
+| DoS via upload size                        | nginx `client_max_body_size 10M` (edge) + app                        |
+| DoS via rapid uploads                      | nginx rate limit + app per-IP + IP/UA dedupe                         |
+| DoS via ONNX CPU                           | Inference semaphore (max 2 concurrent)                               |
+| DoS via `/health` DB writes                | nginx rate limit on `/health`                                        |
+| Decompression bomb                         | Sharp `limitInputPixels`                                             |
+| CSRF                                       | `SameSite=Lax` cookie + Origin/Referer check                         |
+| Cookie tampering                           | HMAC signature                                                       |
+| Vote manipulation                          | Dual dedupe (token + IP/UA)                                          |
+| Downgrade attacks                          | HSTS (1 year)                                                        |
+| Supply chain (HTMX)                        | Self-hosted, pinned + SRI; CSP blocks CDNs                           |
+| Supply chain (model)                       | SHA-256 verified in CI; never served (`models/`, not `public/`)      |
+| Secret/data leakage into image             | `.dockerignore` excludes `.env*`, `data/`, `.git`                    |
+| Host compromise                            | Firewall, SSH key-only, fail2ban, unattended-upgrades (provision.sh) |
+| Secret loss                                | HMAC + R2 keys in 0600 `.env`, backed up out-of-band                 |
 
 ---
 
@@ -1236,19 +1252,19 @@ lives in the modal (per the component contract — tiles stay tap-to-open).
 
 ## Interactions summary
 
-| Element | Tech | Custom JS |
-|---|---|---|
-| Grid responsive columns | CSS `auto-fill` | 0 |
-| Grid infinite scroll | HTMX `hx-trigger="revealed"` | 0 |
-| Like button (modal) | HTMX POST | 0 |
-| Modal open (detail/submit) | HTMX `hx-get` | 0 |
-| Modal close | Vanilla `dialog.close()` | ~5 |
-| Submit image preview | Preact island | ~30 |
-| Comment infinite scroll | HTMX `hx-trigger="revealed"` | 0 |
-| Comment form (post/error) | HTMX POST | 0 |
-| Sidebar toggle (☰) | CSS / HTMX | 0 |
-| Sidebar swipe gesture | Vanilla touch events | ~25 |
-| Sidebar animation | CSS transition | 0 |
+| Element                    | Tech                         | Custom JS |
+| -------------------------- | ---------------------------- | --------- |
+| Grid responsive columns    | CSS `auto-fill`              | 0         |
+| Grid infinite scroll       | HTMX `hx-trigger="revealed"` | 0         |
+| Like button (modal)        | HTMX POST                    | 0         |
+| Modal open (detail/submit) | HTMX `hx-get`                | 0         |
+| Modal close                | Vanilla `dialog.close()`     | ~5        |
+| Submit image preview       | Preact island                | ~30       |
+| Comment infinite scroll    | HTMX `hx-trigger="revealed"` | 0         |
+| Comment form (post/error)  | HTMX POST                    | 0         |
+| Sidebar toggle (☰)        | CSS / HTMX                   | 0         |
+| Sidebar swipe gesture      | Vanilla touch events         | ~25       |
+| Sidebar animation          | CSS transition               | 0         |
 
 **Total custom JS: ~60 lines.**
 
@@ -1262,7 +1278,7 @@ SQLite, no ONNX/network):
 - **Dedupe transaction:** double like (same token) → count increments once; same
   IP/UA, new token → still rejected; distinct user → increments.
 - **Validation guards:** oversized file, bad magic bytes, SVG, mismatched
-  extension all reject *before* ONNX is invoked.
+  extension all reject _before_ ONNX is invoked.
 - **`validateCat()`** with a stub session: above/below threshold behavior.
 - **Comment rules:** >500 chars rejected; HTML stripped; second comment by same
   user on same cat rejected.
@@ -1382,37 +1398,44 @@ External binaries (via pinned Docker images): `nginx:1.27-alpine`,
 ## Implementation phases
 
 ### Phase 1 — Scaffold
+
 - [ ] Astro SSR + Node adapter; add Preact integration
 - [ ] `deploy/` dir: Dockerfile, nginx.conf, entrypoint.sh; `docker-compose.yml` at root
 - [ ] `.dockerignore`; `scripts/fetch-model.sh` → `models/`
 - [ ] Bundle HTMX (v2.0.4) with SRI; `.env.example`
 
 ### Phase 2 — Database
+
 - [ ] better-sqlite3 + drizzle; WAL + `wal_autocheckpoint=0`
 - [ ] Schema with dual UNIQUE on votes; indexes
 - [ ] drizzle migrations + `scripts/migrate.ts`
 
 ### Phase 3 — Auth & security
+
 - [ ] Signed cookie middleware; IP+UA hash
 - [ ] Client IP from `X-Real-IP` only
 - [ ] CSRF: SameSite + Origin check; CSP + HSTS in nginx
 
 ### Phase 4 — Image pipeline
+
 - [ ] Magic-byte + size + extension + SVG guards
 - [ ] ONNX validation behind `validateCat()` + semaphore (model in `models/`)
 - [ ] Sharp rotate → thumb + full → WebP → uploads volume
 
 ### Phase 5 — API routes
+
 - [ ] GET/POST `/api/cats` (orphan-row cleanup on processImage failure)
 - [ ] GET `/api/submit-form`; GET `/api/cats/[id]`; POST `/api/cats/[id]/like`
 - [ ] GET/POST `/api/cats/[id]/comments`; GET `/health`
 
 ### Phase 6 — UI components
+
 - [ ] Hero, CatGrid, CatCard, LikeButton, Sentinel
 - [ ] CatModal, CommentList, CommentItem, CommentForm
 - [ ] SubmitForm (Preact), Leaderboard, Sidebar
 
 ### Phase 7 — CI/CD & deploy (Task 12 artifacts)
+
 - [ ] GitHub Actions: lint/typecheck/test → build → GHCR; deploy = pull → migrate → up → health gate
 - [ ] Provision CX22 via `deploy/provision.sh`; DNS (A only)
 - [ ] `FIRST_DEPLOY.md` checklist: .env, GHCR access, standalone cert, `up -d`
@@ -1423,15 +1446,15 @@ External binaries (via pinned Docker images): `nginx:1.27-alpine`,
 
 ## Cost breakdown
 
-| Item | Monthly |
-|---|---|
-| Hetzner CX22 | €4.00 |
-| IPv4 address | €0.50 |
-| Cloudflare R2 | $0 |
-| UptimeRobot | $0 |
-| healthchecks.io | $0 |
-| GHCR (public image) | $0 |
-| **Total** | **~€4.50–5** |
+| Item                | Monthly      |
+| ------------------- | ------------ |
+| Hetzner CX22        | €4.00        |
+| IPv4 address        | €0.50        |
+| Cloudflare R2       | $0           |
+| UptimeRobot         | $0           |
+| healthchecks.io     | $0           |
+| GHCR (public image) | $0           |
+| **Total**           | **~€4.50–5** |
 
 ---
 
@@ -1448,7 +1471,7 @@ External binaries (via pinned Docker images): `nginx:1.27-alpine`,
 - Comment ordering — start oldest-first (chronological).
 - **Offset pagination duplicates:** new uploads shift `created_at DESC` pages,
   so infinite scroll can show a tile twice. Cursor pagination (`id <
-  lastSeenId`) fixes it; deliberately deferred (contract churn > benefit at
+lastSeenId`) fixes it; deliberately deferred (contract churn > benefit at
   hobby scale).
 - **Grid like button:** V3 prose mentioned likes on grid tiles; the component
   contract renders count-only tiles (like button in the modal). The contract is

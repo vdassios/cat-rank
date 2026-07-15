@@ -62,6 +62,7 @@ Plus the shell: `src/pages/index.astro`.
 ```
 npm run build
 ```
+
 Build succeeds. Manually confirm (dev server) that the page renders the hero,
 grid, sidebar, and an (initially empty) modal, and that markup contains the
 exact IDs and `hx-*` attributes listed above. Report which components render.

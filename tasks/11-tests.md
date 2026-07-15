@@ -20,11 +20,13 @@ master plan § Testing strategy.
 ## Required test cases (cover at least these)
 
 **Dedupe transaction (CONTRACTS §10):**
+
 - same `user_token` likes a cat twice → `likes_count` increments **once**.
 - different `user_token` but same `ip_ua_hash` → second like rejected.
 - two genuinely distinct users → count == 2.
 
 **Upload guards (CONTRACTS §9), order-sensitive:**
+
 - > 10 MB → `File too large (max 10MB)`.
 - bad magic bytes → `Unsupported format`.
 - valid magic but wrong extension → `Unsupported file type`.
@@ -32,15 +34,18 @@ master plan § Testing strategy.
 - (mock `validateCat` to false) → `We couldn't verify this is a cat`.
 
 **`validateCat` thresholding (mock the ONNX session):**
+
 - cat-class sum ≥ `CAT_THRESHOLD` → true; below → false.
 
 **Comment rules (CONTRACTS §9):**
+
 - empty/whitespace → `Comment cannot be empty`.
 - > 500 chars → `Comment too long (max 500)`.
 - second comment by same user on same cat → `You already commented on this cat`.
 - HTML tags stripped before insert.
 
 **Origin check (CONTRACTS §5):**
+
 - request with `Origin === ALLOWED_ORIGIN` → true; foreign Origin → false;
   missing → false.
 
@@ -57,4 +62,5 @@ master plan § Testing strategy.
 ```
 npm test     # all specs green
 ```
+
 Report the number of tests and that they pass offline.

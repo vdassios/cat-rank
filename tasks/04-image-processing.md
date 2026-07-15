@@ -46,10 +46,12 @@ Implement `processImage(buf, id)` per CONTRACTS §5:
 
 Write a throwaway script (delete after) that calls `processImage(buf, 999)` with
 a real JPEG buffer and confirms:
+
 ```
 UPLOAD_DIR=./data/uploads node <script>
 ls ./data/uploads/999_thumb.webp ./data/uploads/999_full.webp
 ```
+
 - both files exist and are valid WebP (e.g. `file` reports RIFF/WEBP),
 - thumbnail width is 300, full longest side ≤ 1200,
 - returned object matches the contract.

@@ -18,10 +18,11 @@ rateLimit/middleware).
 ## `src/lib/auth.ts`
 
 Implement the exact signatures in CONTRACTS §5:
+
 - `issueToken()` → `crypto.randomUUID()`.
 - `signToken` / `verifyToken` → `cookie-signature` `sign`/`unsign` with
   `process.env.HMAC_SECRET`. Throw at module load if `HMAC_SECRET` is unset.
-- `createIpUaHash(ip, ua)` → `sha256(\`${ip}|${ua}\`)` hex, `.slice(0, 32)`.
+- `createIpUaHash(ip, ua)` → `sha256(\`${ip}|${ua}\`)`hex,`.slice(0, 32)`.
 - Export `COOKIE_NAME = 'user_token'` and `COOKIE_OPTS` exactly as in §5.
 
 ## `src/lib/csrf.ts`
@@ -43,9 +44,10 @@ Implement the exact signatures in CONTRACTS §5:
 ## `src/middleware.ts`
 
 Astro `onRequest`:
+
 1. Resolve client IP: `X-Real-IP` header if present, else the connection
    remote address (dev fallback). Store on `context.locals.clientIp`.
-   **Never read `X-Forwarded-For`** — nginx *appends* to the client-supplied
+   **Never read `X-Forwarded-For`** — nginx _appends_ to the client-supplied
    value, so its first hop is attacker-controlled; trusting it would let anyone
    spoof the `ip_ua_hash` vote dedupe and rate limits. nginx always overwrites
    `X-Real-IP` with the true `$remote_addr`, which is why it is the only
@@ -65,6 +67,7 @@ Astro `onRequest`:
 
 `npm run build` succeeds. Then a quick self-check (you may write a throwaway
 script, delete after):
+
 - `verifyToken(signToken(t)) === t`; tampered string → `false`.
 - `createIpUaHash('1.2.3.4','UA')` is 32 hex chars and stable.
 - `new Semaphore(2)` never runs >2 of 5 concurrent tasks at once.

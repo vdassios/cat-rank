@@ -51,11 +51,11 @@ or the ONNX validator.
 
 ## Sample data shape
 
-| name | likes |
-|---|---|
-| Sample Cat 1 | 5 |
-| Sample Cat 2 | 8 |
-| Sample Cat 3 | 3 |
+| name         | likes |
+| ------------ | ----- |
+| Sample Cat 1 | 5     |
+| Sample Cat 2 | 8     |
+| Sample Cat 3 | 3     |
 
 (Cat 2 should become the hero; Cats 1 and 3 appear in the grid.)
 
@@ -78,5 +78,6 @@ ls public/uploads/                                            # 6 webp files
 DATABASE_PATH=./data/cats.db node dist/scripts/seed.mjs
 sqlite3 ./data/cats.db "SELECT count(*) FROM cats;"           # 3
 ```
+
 Then `npm run dev` and confirm the hero (Sample Cat 2), the grid (Cats 1 & 3),
 and the leaderboard render with visible placeholder images. Report results.

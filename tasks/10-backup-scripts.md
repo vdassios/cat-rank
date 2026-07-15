@@ -58,5 +58,6 @@ head -1 deploy/backup-images.sh                   # MUST be #!/bin/sh (no bash)
 grep -n "no-deps" deploy/verify-backup.sh         # MUST match
 grep -n "/app/data/cats.db" deploy/verify-backup.sh   # MUST match
 ```
+
 Report: all three parse, are executable, use `copy` not `sync`, and
 `backup-images.sh` is pure POSIX sh.

@@ -62,6 +62,7 @@ reimplement.
 ```
 npm run build
 ```
+
 - `detectMime` returns correct types for crafted JPEG/PNG/WEBP byte prefixes and
   `null` for random bytes and for a `RIFF` buffer that is not `WEBP`.
 - `isCat.ts` imports without throwing even if the model file is absent.

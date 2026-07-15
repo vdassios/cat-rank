@@ -59,5 +59,6 @@ grep -q 'MODEL_DIR="models"' scripts/fetch-model.sh      # not public/models
 # YAML lint (any available): python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/deploy.yml'))"
 # Ordering: migrate must appear BEFORE `docker compose up -d` in the deploy script
 ```
+
 Report: scripts parse, workflow YAML is valid, the secret names match the list
 above, and migrate precedes `up -d` in the deploy script.

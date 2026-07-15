@@ -9,6 +9,9 @@ empty pages) and every other task has a place to write its files.
 ## Files you create
 
 - `package.json` — scripts + the exact dependency set from CONTRACTS §11.
+- `prettier.config.mjs`, `.prettierignore`, and `eslint.config.mjs` — canonical
+  formatting/linting rules, generated-file exclusions, and Prettier-compatible
+  lint configuration.
 - `tsconfig.json` — extends `astro/tsconfigs/strict`, ESM, `"types": ["astro/client"]`.
 - `astro.config.mjs` — SSR config (below).
 - `drizzle.config.ts` — points at `src/db/schema.ts`, out `drizzle/migrations`, dialect `sqlite`.
@@ -46,6 +49,7 @@ tasks
 ## Exact configs
 
 `package.json` scripts:
+
 ```json
 {
   "type": "module",
@@ -56,15 +60,21 @@ tasks
     "preview": "astro preview",
     "typecheck": "astro check",
     "test": "vitest run --passWithNoTests",
+    "lint": "eslint .",
+    "lint:format-compat": "eslint-config-prettier src/db/schema.ts src/pages/index.astro",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node dist/scripts/migrate.mjs"
   }
 }
 ```
+
 Dependencies/devDependencies: exactly the lists in CONTRACTS §11. Use current
 stable versions matching the majors there (Astro `^5`, etc.).
 
 `astro.config.mjs`:
+
 ```js
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
@@ -81,11 +91,14 @@ export default defineConfig({
 ## HTMX download
 
 Fetch HTMX 2.0.4 and save to `public/htmx.min.js`:
+
 ```
 curl -fSL https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js -o public/htmx.min.js
 ```
+
 Then compute its SRI hash and record it in a comment at the top of
 `src/pages/index.astro` for task 06 to use:
+
 ```
 openssl dgst -sha384 -binary public/htmx.min.js | openssl base64 -A
 ```
@@ -104,10 +117,14 @@ openssl dgst -sha384 -binary public/htmx.min.js | openssl base64 -A
 
 ```
 npm install
+npm run format:check
+npm run lint
+npm run lint:format-compat
 npm run build      # builds with the placeholder index page, no errors
 test -f public/htmx.min.js
 test -f .dockerignore && ! grep -qx 'models' .dockerignore
 grep -qx 'models/' .gitignore
 ```
+
 Report: build succeeds, htmx file present, SRI hash recorded, `.dockerignore`
 created, `.gitignore` model path updated.
