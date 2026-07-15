@@ -13,10 +13,10 @@ export const cats = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (table) => [
-    index('idx_cats_likes').on(sql`${table.likesCount} DESC`),
-    index('idx_cats_created').on(sql`${table.createdAt} DESC`),
-  ],
+  (table) => ({
+    likesIndex: index('idx_cats_likes').on(sql`${table.likesCount} DESC`),
+    createdIndex: index('idx_cats_created').on(sql`${table.createdAt} DESC`),
+  }),
 );
 
 export const votes = sqliteTable(
@@ -32,11 +32,11 @@ export const votes = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (table) => [
-    index('idx_votes_cat').on(table.catId),
-    unique('unique_votes_user_token').on(table.catId, table.userToken),
-    unique('unique_votes_ip_ua_hash').on(table.catId, table.ipUaHash),
-  ],
+  (table) => ({
+    catIndex: index('idx_votes_cat').on(table.catId),
+    userTokenUnique: unique('unique_votes_user_token').on(table.catId, table.userToken),
+    ipUaHashUnique: unique('unique_votes_ip_ua_hash').on(table.catId, table.ipUaHash),
+  }),
 );
 
 export const comments = sqliteTable(
@@ -52,10 +52,10 @@ export const comments = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
   },
-  (table) => [
-    index('idx_comments_cat').on(table.catId, table.createdAt),
-    unique('unique_comments_user').on(table.catId, table.userToken),
-  ],
+  (table) => ({
+    catIndex: index('idx_comments_cat').on(table.catId, table.createdAt),
+    userUnique: unique('unique_comments_user').on(table.catId, table.userToken),
+  }),
 );
 
 export type Cat = typeof cats.$inferSelect;
