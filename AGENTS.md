@@ -18,6 +18,9 @@ isolated subtasks so multiple agents can work independently.
 
 ## Working rules
 
+- **Create a task-specific feature branch before making changes.** Do not work
+  directly on the default branch, and use a branch name that clearly identifies
+  the task.
 - **Do exactly one task** unless told otherwise. Create/modify only the files
   listed under "Files you create" in your task — stay out of other tasks' files.
 - **Precedence:** task file > `CONTRACTS.md` > master plan. If they conflict, or
@@ -38,6 +41,9 @@ isolated subtasks so multiple agents can work independently.
   remain last in the ESLint configuration.
 - **Finish with the acceptance check** at the bottom of your task file. Run it
   and report pass/fail honestly.
+- **Notify the user when the task is complete and ready for code review.** Include
+  the feature branch name so a review can be launched with a potentially
+  different model.
 
 ## Order of execution
 
