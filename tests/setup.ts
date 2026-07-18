@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { afterAll } from 'vitest';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kot-test-'));
 
@@ -14,3 +15,7 @@ process.env.UPLOAD_DIR = path.join(tmp, 'uploads');
 fs.mkdirSync(process.env.UPLOAD_DIR, { recursive: true });
 process.env.HMAC_SECRET = 'test-hmac-secret';
 process.env.ALLOWED_ORIGIN = 'http://localhost:4321';
+
+afterAll(() => {
+  fs.rmSync(tmp, { recursive: true, force: true });
+});

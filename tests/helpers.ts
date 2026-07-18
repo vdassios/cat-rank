@@ -1,6 +1,11 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import sharp from 'sharp';
+import { afterAll } from 'vitest';
 import { db, rawDb } from '../src/db/connection';
+
+afterAll(() => {
+  rawDb.close();
+});
 
 /** Apply the committed drizzle migrations to this test file's temp DB. */
 export function applyMigrations(): void {
@@ -46,9 +51,16 @@ export async function makeImage(
   width: number,
   height: number,
   format: 'jpeg' | 'png' | 'webp' = 'jpeg',
+  opts: Partial<Omit<sharp.Create, 'width' | 'height'>> = {},
 ): Promise<Buffer> {
   return sharp({
-    create: { width, height, channels: 3, background: { r: 210, g: 120, b: 60 } },
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 210, g: 120, b: 60 },
+      ...opts,
+    },
   })
     [format]()
     .toBuffer();

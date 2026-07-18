@@ -67,13 +67,25 @@ describe('Semaphore (CONTRACTS §5)', () => {
 
   it('releases the slot when a task rejects and propagates the rejection', async () => {
     const sem = new Semaphore(1);
-    await expect(
-      sem.run(async () => {
-        throw new Error('boom');
-      }),
-    ).rejects.toThrow('boom');
-    // The slot must be free again:
-    await expect(sem.run(async () => 'after')).resolves.toBe('after');
+    const gate = deferred();
+    let queuedStarted = false;
+
+    const rejecting = sem.run(async () => {
+      await gate.promise;
+      throw new Error('boom');
+    });
+    const queued = sem.run(async () => {
+      queuedStarted = true;
+      return 'after';
+    });
+
+    await tick();
+    expect(queuedStarted).toBe(false);
+
+    gate.resolve();
+    await expect(rejecting).rejects.toThrow('boom');
+    await expect(queued).resolves.toBe('after');
+    expect(queuedStarted).toBe(true);
   });
 
   it('propagates resolved values', async () => {

@@ -92,6 +92,16 @@ describe('validateCat thresholding (CONTRACTS §5)', () => {
     await expect(validateCat(await makeImage(32, 32))).resolves.toBe(true);
   });
 
+  it('returns true when the cat-class sum equals the threshold', async () => {
+    h.logits.fill(-Infinity);
+    for (let i = 0; i < 20; i += 1) h.logits[i] = 0;
+    for (const i of [281, 282, 283, 284, 285]) h.logits[i] = 0;
+
+    // Five cat classes among 25 equal finite logits → cat sum = 5 / 25 = 0.20.
+    const { validateCat } = await loadIsCat();
+    await expect(validateCat(await makeImage(32, 32))).resolves.toBe(true);
+  });
+
   it('feeds the session a float32 tensor of shape [1, 3, 224, 224]', async () => {
     const { validateCat } = await loadIsCat();
     await validateCat(await makeImage(32, 32));
