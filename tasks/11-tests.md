@@ -1,5 +1,12 @@
 # Task 11 — Tests
 
+> **Superseded by [`TESTING.md`](./TESTING.md)** — the project moved to a
+> shift-left TDD workflow: tests for finished tasks (00–03) were retrofitted
+> immediately, and every remaining task carries its own test unit (T04–T12)
+> written before/with its implementation. `TESTING.md` is the authoritative
+> plan; this file is kept for the original scope description. Where the two
+> disagree, `TESTING.md` wins.
+
 **Goal:** fast unit/integration tests (Vitest) for the highest-value logic:
 dedupe transaction, upload guards, `validateCat` thresholding, comment rules,
 and the Origin check. No network, no real ONNX, in-memory SQLite.
