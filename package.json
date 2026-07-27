@@ -8,7 +8,7 @@
     "build:scripts": "if ls scripts/*.ts >/dev/null 2>&1; then esbuild scripts/*.ts --bundle --platform=node --format=esm --packages=external --outdir=dist/scripts --out-extension:.js=.mjs; else echo 'no scripts/*.ts yet'; fi",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "eslint .",
     "lint:format-compat": "eslint-config-prettier src/db/schema.ts src/pages/index.astro",
     "format": "prettier --write .",
