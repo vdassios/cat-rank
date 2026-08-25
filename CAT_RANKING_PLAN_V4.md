@@ -656,7 +656,7 @@ echo "model: installed + verified at $MODEL_PATH"
 
 ```sh
 #!/bin/sh
-# Daily append-only image backup to R2. NEVER `rclone sync`.
+# Daily append-only image backup to R2. NEVER use `sync` — copy is additive.
 # POSIX sh — this runs inside rclone/rclone (Alpine), which has no bash.
 set -eu
 

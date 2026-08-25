@@ -33,7 +33,9 @@ shells and paths.)
 
 - **Never `rclone sync`** — only `rclone copy` (+ `--backup-dir`). `sync` would
   propagate a local wipe to the backup and destroy it. This is the single most
-  important rule in this task.
+  important rule in this task. The literal phrase `rclone sync` must not appear
+  anywhere in `deploy/*.sh`, including comments, because the acceptance check
+  intentionally scans whole files.
 - `backup-images.sh`: `#!/bin/sh` + `set -eu` (container has no bash).
   `verify-backup.sh`: bash is fine (runs on the host).
 - Env var names exactly per CONTRACTS §3 (`HEALTHCHECK_IMAGES_URL`,
