@@ -68,7 +68,7 @@ interfaces before those are implemented.
 | 02  | [Auth & security](./02-auth-security.md)     | `src/lib/{auth,csrf,semaphore,rateLimit}.ts`, `src/middleware.ts`                                   | 00             |
 | 03  | [Image validation](./03-image-validation.md) | `src/validation/*`                                                                                  | 00             |
 | 04  | [Image processing](./04-image-processing.md) | `src/lib/images.ts`                                                                                 | 00             |
-| 05  | [API routes](./05-api-routes.md)             | `src/pages/api/*`, `src/pages/health.ts`                                                            | 00,01,02,03,04 |
+| 05  | [API routes](./05-api-routes.md)             | `src/pages/api/*` (`.astro` partials), `src/pages/health.ts`                                        | 00,01,02,03,04 |
 | 06  | [UI components](./06-ui-components.md)       | `src/components/*`, `src/pages/index.astro`                                                         | 00             |
 | 07  | [Frontend JS](./07-frontend-js.md)           | `src/scripts/ui.ts`                                                                                 | 06             |
 | 08  | [Deploy artifacts](./08-deploy-artifacts.md) | `docker-compose.yml` (**repo root**), `deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh}` | 00             |

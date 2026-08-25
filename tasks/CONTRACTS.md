@@ -21,7 +21,7 @@ wrong, **stop and report** — do not "fix" it unilaterally.
 | Islands           | `@astrojs/preact`                                                                                                                                                        |
 | HTMX              | `2.0.4`, self-hosted at `public/htmx.min.js` (pinned + SRI)                                                                                                              |
 | ONNX model file   | `models/mobilenetv2-cat.onnx` (gitignored; fetched in CI). **Never in `public/`** — Astro copies `public/` into `dist/client/` and would serve the model to the internet |
-| Module system     | ESM (`"type": "module"`), TypeScript, `.ts` source                                                                                                                       |
+| Module system     | ESM (`"type": "module"`), TypeScript modules, `.astro` pages/components                                                                                                  |
 
 ---
 
@@ -45,12 +45,12 @@ src/
 ├── validation/imagenet-labels.json
 ├── middleware.ts               # Astro middleware: user_token + real IP
 ├── pages/index.astro           # page shell
-├── pages/health.ts             # GET /health
-├── pages/api/submit-form.ts    # GET submit modal
-├── pages/api/cats/index.ts     # GET grid | POST upload
-├── pages/api/cats/[id]/index.ts        # GET detail modal
-├── pages/api/cats/[id]/like.ts         # POST like
-├── pages/api/cats/[id]/comments.ts     # GET page | POST add
+├── pages/health.ts             # GET /health (JSON endpoint, not a fragment)
+├── pages/api/submit-form.astro # partial page: GET submit modal
+├── pages/api/cats/index.astro  # partial page: GET grid | POST upload
+├── pages/api/cats/[id]/index.astro     # partial page: GET detail modal
+├── pages/api/cats/[id]/like.astro      # partial page: POST like
+├── pages/api/cats/[id]/comments.astro  # partial page: GET page | POST add
 ├── components/*.astro          # see §7
 ├── components/SubmitForm.tsx   # Preact island
 └── scripts/ui.ts               # client JS (built to dist/client/ui.js)
@@ -105,8 +105,8 @@ Consumers import types from `src/db/schema.ts`.
 export interface Cat {
   id: number;
   name: string;
-  thumbnailPath: string; // e.g. "/uploads/12_thumb.webp"
-  imagePath: string; // e.g. "/uploads/12_full.webp"
+  thumbnailPath: string; // e.g. "/uploads/550e8400-e29b-41d4-a716-446655440000_thumb.webp"
+  imagePath: string; // e.g. "/uploads/550e8400-e29b-41d4-a716-446655440000_full.webp"
   likesCount: number;
   createdAt: string; // SQLite datetime('now') text
 }
@@ -201,10 +201,17 @@ export interface ProcessedImage {
   imagePath: string;
 }
 // Sharp: rotate (EXIF) → thumbnail 300px WebP80 + full 1200px WebP85, strip metadata.
-// Writes {id}_thumb.webp and {id}_full.webp into process.env.UPLOAD_DIR.
-// Returns public paths "/uploads/{id}_thumb.webp" and "/uploads/{id}_full.webp".
-export function processImage(buf: Buffer, id: number): Promise<ProcessedImage>;
+// Writes {storageKey}_thumb.webp and {storageKey}_full.webp into process.env.UPLOAD_DIR.
+// Returns public paths "/uploads/{storageKey}_thumb.webp" and
+// "/uploads/{storageKey}_full.webp". If either output fails, removes both outputs.
+export function processImage(buf: Buffer, storageKey: string): Promise<ProcessedImage>;
+// Idempotently removes both files for storageKey; missing files are success.
+export function deleteProcessedImages(storageKey: string): Promise<void>;
 ```
+
+`storageKey` is generated server-side with `crypto.randomUUID()` before image
+processing. It is independent of the database ID and is never derived from
+request data.
 
 ### `src/validation/mime.ts`
 
@@ -294,10 +301,10 @@ All components are Astro (`.astro`) except `SubmitForm.tsx` (Preact). Routes in
 | `CatCard.astro`     | `{ cat: Cat }`                                                                                     | one grid tile (thumb + ★count), `hx-get="/api/cats/{id}"`   |
 | `LikeButton.astro`  | `{ cat: Cat; liked: boolean }`                                                                     | ★ button, `hx-post="/api/cats/{id}/like"`                   |
 | `Sentinel.astro`    | `{ url: string }`                                                                                  | `hx-get={url}` `hx-trigger="revealed"` `hx-swap="afterend"` |
-| `CatModal.astro`    | `{ cat: Cat; liked: boolean; comments: Comment[]; nextPage: number \| null; canComment: boolean }` | full image + LikeButton + CommentList + CommentForm/notice  |
-| `CommentList.astro` | `{ comments: Comment[]; catId: number; nextPage: number \| null }`                                 | items + Sentinel if more                                    |
+| `CatModal.astro`    | `{ cat: Cat; liked: boolean; comments: Comment[]; nextPage: number \| null; canComment: boolean }` | full image + `LikeButton` + the comment region skeleton below |
+| `CommentList.astro` | `{ comments: Comment[]; catId: number; nextPage: number \| null }`                                 | bare items + Sentinel if more (**no wrapper id**)           |
 | `CommentItem.astro` | `{ comment: Comment }`                                                                             | one comment (escaped text + timestamp)                      |
-| `CommentForm.astro` | `{ catId: number }`                                                                                | textarea + submit, `hx-post="/api/cats/{id}/comments"`      |
+| `CommentForm.astro` | `{ catId: number }`                                                                                | textarea + submit, `hx-post`/`hx-target="#comment-list"`     |
 | `Leaderboard.astro` | `{ cats: Cat[] }`                                                                                  | top-10 list (thumb + name + ★)                              |
 | `Sidebar.astro`     | `{ cats: Cat[] }`                                                                                  | overlay wrapping `Leaderboard`                              |
 | `SubmitForm.tsx`    | `{}`                                                                                               | file input + name + client-side preview/validation          |
@@ -308,7 +315,27 @@ All components are Astro (`.astro`) except `SubmitForm.tsx` (Preact). Routes in
   HTMX loads fragments into `#modal-body`. JS closes via `modal.close()`.
 - Sidebar root element id: `#sidebar`; toggle button id: `#sidebar-toggle`;
   backdrop id: `#sidebar-backdrop`.
-- Grid container id: `#cat-grid`. Comment list container id: `#comment-list`.
+- Grid container id: `#cat-grid`.
+- Comment region — `CatModal` renders **exactly** this skeleton (two sibling
+  containers; `CommentList` itself renders no wrapper id, so sentinel-appended
+  pages cannot duplicate one):
+
+```astro
+<div id="comment-list">
+  <CommentList comments={comments} catId={cat.id} nextPage={nextPage} />
+</div>
+<div id="comment-form">
+  {canComment ? <CommentForm catId={cat.id} /> : <p>You commented on this cat</p>}
+</div>
+```
+
+**Three near-identical notice strings — do not interchange them:**
+
+| Where                                                | Exact text                          |
+| ---------------------------------------------------- | ------------------------------------- |
+| `#comment-form` on load when `canComment` is `false` | `You commented on this cat`         |
+| `#comment-form` after a successful POST (OOB swap)   | `comment posted`                    |
+| `400` response body when the duplicate guard rejects | `You already commented on this cat` |
 
 ---
 
@@ -316,7 +343,28 @@ All components are Astro (`.astro`) except `SubmitForm.tsx` (Preact). Routes in
 
 All POST handlers MUST: (1) call `checkOrigin(request)` → 403 if false;
 (2) read `locals.userToken` / `locals.clientIp`. Redirects use the `HX-Redirect`
-response header (never 302). Fragment routes return `Content-Type: text/html`.
+response header (never 302).
+
+**Content types.** Only *successful* fragment responses must be
+`Content-Type: text/html` — that is what Astro sets for a rendered partial page,
+so no explicit header is needed there. Error responses (the §9 guard strings,
+`Forbidden`, `Not Found`) are bare `Response` bodies and stay plain text; HTMX
+shows them via its response-error handling and never parses them as HTML. Do
+not add `text/html` headers to error responses to satisfy the rule above.
+
+Routes that render Astro component fragments are `.astro` partial pages and
+MUST export `const partial = true` — without it Astro may wrap the response in
+a full document and break the HTMX swap. Pages that support more than one
+method branch on `Astro.request.method`; they use `Astro.request`,
+`Astro.locals`, and `Astro.response` for the same request/response contract
+below. Production code MUST NOT import `astro/container` or use
+`experimental_AstroContainer`.
+
+`/api/submit-form` is also an `.astro` partial page: it renders
+`<SubmitForm client:load />` so the Preact island actually hydrates. A `.ts`
+endpoint using Preact's server renderer would emit static markup with no
+hydration script, which the client-side preview/validation needs. `/health`
+stays a `.ts` API endpoint — it returns JSON, not a fragment.
 
 | Route                     | Method | Request                                  | Success response                                                                                                      |
 | ------------------------- | ------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -327,7 +375,7 @@ response header (never 302). Fragment routes return `Content-Type: text/html`.
 | `/api/cats/[id]`          | GET    | —                                        | `200` HTML: `CatModal` fragment; `404` if no cat                                                                      |
 | `/api/cats/[id]/like`     | POST   | —                                        | `200` HTML: updated `LikeButton` (idempotent if already liked)                                                        |
 | `/api/cats/[id]/comments` | GET    | `?page=N`                                | `200` HTML: `CommentList` page, `created_at ASC`, 10/page                                                             |
-| `/api/cats/[id]/comments` | POST   | form: `text`                             | `200` HTML: updated first-10 `CommentList` + form replaced by "comment posted"; `400` HTML error if invalid/duplicate |
+| `/api/cats/[id]/comments` | POST   | form: `text`                             | `200` HTML: fresh first-10 `CommentList` (swapped into `#comment-list`) + OOB `#comment-form` notice; `400` on invalid/duplicate |
 | `/health`                 | GET    | —                                        | `200` JSON `{"status":"ok"}` if DB writable + upload dir OK; else `503` text `unhealthy`                              |
 
 **Pagination:** `limit` for grid defaults to 12, comments fixed at 10. `page`
@@ -336,6 +384,42 @@ is 1-based. `nextPage` is `page+1` when a full page was returned, else `null`.
 **Like state (`liked`)**: true if a `votes` row exists for `(catId, userToken)`.
 **Comment eligibility (`canComment`)**: false if a `comments` row exists for
 `(catId, userToken)`.
+
+Both are **two-column** lookups. In Drizzle, chaining `.where()` twice
+*replaces* the first predicate instead of combining it — a chained query
+degenerates into "did this user like/comment on *anything*". Always compose
+with `and()`:
+
+```ts
+import { and, eq } from 'drizzle-orm';
+db.select().from(votes).where(and(eq(votes.catId, id), eq(votes.userToken, token))).limit(1);
+```
+
+**Comment POST swap shape** (so the list and the form both update from one
+response): `CommentForm` posts with `hx-target="#comment-list"` and
+`hx-swap="innerHTML"`. One template in `comments.astro` serves both methods —
+GET renders only the list; POST additionally emits the out-of-band form
+replacement. Write it exactly like this:
+
+```astro
+<CommentList comments={pageComments} catId={id} nextPage={nextPage} />
+{
+  justPosted && (
+    <div id="comment-form" hx-swap-oob="true">
+      comment posted
+    </div>
+  )
+}
+```
+
+`justPosted` is a local boolean, `true` only after a successful insert. The OOB
+`<div>` must carry the `id` itself — `hx-swap-oob="true"` replaces the matching
+element's **outerHTML**, so the id has to survive the swap. Do not emit a bare
+`<p>comment posted</p>` sibling: it lands inside `#comment-list` and leaves the
+form on screen.
+
+GET pages keep the existing behaviour: the `Sentinel` inside `#comment-list`
+swaps the next page `afterend` of itself.
 
 ---
 
@@ -355,18 +439,58 @@ Comment guards (`400` exact body):
 - length > 500 → `Comment too long (max 500)`
 - duplicate for `(catId, userToken)` → `You already commented on this cat`
 
+The duplicate check is a pre-check, not the guarantee — the
+`UNIQUE(cat_id, user_token)` constraint is. Two concurrent posts can both pass
+the `SELECT`, so the insert MUST sit in `try`/`catch` and use
+`isConstraintError()` from §10 to return the same
+`400 You already commented on this cat` instead of a 500:
+
+```ts
+try {
+  db.insert(comments).values({ catId: id, userToken, text: sanitized }).run();
+} catch (err) {
+  if (isConstraintError(err)) {
+    return new Response('You already commented on this cat', { status: 400 });
+  }
+  throw err;
+}
+```
+
 Comment sanitization before insert: `text.replace(/<[^>]*>/g, '').trim()`, then
 length-check the result. Cat `name`: trim, max 60 chars, same tag strip.
 
-Filenames: `{id}_thumb.webp`, `{id}_full.webp` — id from DB, never user input.
+Upload filenames: `{storageKey}_thumb.webp`, `{storageKey}_full.webp`, where
+`storageKey = crypto.randomUUID()` is generated by the server before processing
+and is never user input.
 
 ---
 
 ## 10. Like transaction (use verbatim semantics)
 
 Insert `votes` row + increment `cats.likes_count` in ONE transaction. Catch
-`SQLITE_CONSTRAINT` → return already-liked without double counting. Tiebreak for
-ordering: equal `likes_count` → `id ASC`.
+constraint failures (below) → return already-liked without double counting.
+Tiebreak for ordering: equal `likes_count` → `id ASC`.
+
+### Constraint errors (both `/like` and `/comments` POST)
+
+SQLite reports unique-constraint failures under several codes
+(`SQLITE_CONSTRAINT`, `SQLITE_CONSTRAINT_UNIQUE`, `SQLITE_CONSTRAINT_PRIMARYKEY`,
+`SQLITE_CONSTRAINT_TRIGGER`). Match on the **prefix**, never an exact code:
+
+```ts
+function isConstraintError(err: unknown): boolean {
+  return String((err as { code?: string })?.code ?? '').startsWith('SQLITE_CONSTRAINT');
+}
+```
+
+Define this helper **locally in each of the two route files** (it is three
+lines; no new shared module, no change to §2's file list). Handling is per
+route — anything else rethrows:
+
+| Route                          | On `isConstraintError`                                    |
+| ------------------------------ | ----------------------------------------------------------- |
+| `POST /api/cats/[id]/like`     | `200` with the liked `LikeButton`, count unchanged         |
+| `POST /api/cats/[id]/comments` | `400` body `You already commented on this cat`             |
 
 ---
 

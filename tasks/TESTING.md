@@ -45,9 +45,9 @@ gets its own private temp DB.
 1. `vitest.config.ts`:
 
    ```ts
-   import { defineConfig } from 'vitest/config';
+   import { getViteConfig } from 'astro/config';
 
-   export default defineConfig({
+   export default getViteConfig({
      test: {
        include: ['tests/**/*.test.ts'],
        environment: 'node',
@@ -72,11 +72,12 @@ gets its own private temp DB.
      `src/db/connection` (cwd is the repo root under Vitest).
    - `resetDb(): void` — `DELETE FROM votes; DELETE FROM comments; DELETE FROM cats;`
      via `rawDb`.
-   - `insertCat(name?): number` — insert a row with placeholder paths, return id.
+   - `insertCat(name?): number` — insert a complete fixture row with fixed test
+     image paths, return id.
    - Buffer fixtures for mime tests (hand-crafted magic bytes, see T03).
    - `makeImage(width, height, format, opts?): Promise<Buffer>` — sharp-generated
      solid-color image (used by T03 preprocessing and T04).
-   - (Added in T05) `makeAPIContext(...)` — see T05.
+   - (Added in T05) `renderPartialRoute(...)` — see T05.
 
 ---
 
@@ -273,10 +274,11 @@ Real sharp, real files under `process.env.UPLOAD_DIR` (temp). Fixture:
 `makeImage(2000, 1000, 'jpeg')` piped through
 `sharp(...).withMetadata({ orientation: 6 })` so EXIF rotation is testable.
 
-- `processImage(buf, 999)` writes exactly `999_thumb.webp` and `999_full.webp`
-  into `UPLOAD_DIR`.
+- `processImage(buf, '550e8400-e29b-41d4-a716-446655440000')` writes exactly
+  `550e8400-e29b-41d4-a716-446655440000_thumb.webp` and
+  `550e8400-e29b-41d4-a716-446655440000_full.webp` into `UPLOAD_DIR`.
 - Returned object equals
-  `{ thumbnailPath: '/uploads/999_thumb.webp', imagePath: '/uploads/999_full.webp' }`
+  `{ thumbnailPath: '/uploads/550e8400-e29b-41d4-a716-446655440000_thumb.webp', imagePath: '/uploads/550e8400-e29b-41d4-a716-446655440000_full.webp' }`
   (public URL paths, not disk paths — the contract's deliberate asymmetry).
 - Both outputs sniff as `image/webp` via our own `detectMime` (reuse T03).
 - `sharp(thumbFile).metadata()`: `width === 300`.
@@ -286,28 +288,59 @@ Real sharp, real files under `process.env.UPLOAD_DIR` (temp). Fixture:
 - Metadata stripped: output `metadata().exif` is `undefined`.
 - No enlargement: `makeImage(100, 80, 'jpeg')` → thumb width stays 100.
 - `UPLOAD_DIR` missing (rm -rf it first) → `processImage` recreates it.
+- If either Sharp output rejects, neither final file remains.
+- `deleteProcessedImages(storageKey)` removes both files, tolerates either file
+  already being absent, and rejects filesystem errors other than `ENOENT`.
 
 ---
 
 ## T05 — API routes — write together with Task 05, run against real handlers
 
-Route modules export plain `GET`/`POST` functions taking an Astro
-`APIContext`; call them directly — no dev server. Extend `tests/helpers.ts`
-with:
+Render the `.astro` partial route pages with Astro's Container API; call
+`/health` (the only remaining `.ts` endpoint) directly — no dev server. The
+Container API is experimental but is used here only as Astro's test harness;
+production code is forbidden from importing it by CONTRACTS §8.
+
+Extend `tests/helpers.ts` with `renderPartialRoute`. `AstroContainer` is an
+**instance** factory, not a static namespace — import the experimental alias and
+`create()` it before rendering. Copy this implementation as-is:
 
 ```ts
-makeAPIContext(opts: {
-  request: Request;
-  params?: Record<string, string>;
-  locals?: Partial<App.Locals>;   // default { userToken: 'u1', clientIp: '1.1.1.1' }
-}): APIContext
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+
+export async function renderPartialRoute(
+  Page: AstroComponentFactory,
+  opts: {
+    request: Request;
+    params?: Record<string, string>;
+    locals?: Partial<App.Locals>;
+  },
+): Promise<Response> {
+  const container = await AstroContainer.create();
+  return container.renderToResponse(Page, {
+    routeType: 'page',
+    partial: true,
+    request: opts.request,
+    params: opts.params ?? {},
+    locals: { userToken: 'u1', clientIp: '1.1.1.1', ...opts.locals },
+  });
+}
 ```
+
+Import the page under test as its default export, e.g.
+`import CatsIndex from '../src/pages/api/cats/index.astro';`, and pass that as
+`Page`.
+
+Note `renderToResponse` (not `renderToString`) — the route pages return bare
+`Response` objects for their error paths, and only the Response form preserves
+status codes and the `HX-Redirect` header.
 
 Real migrated temp DB (T-INFRA). Mock only other tasks' module boundaries:
 
 ```ts
 vi.mock('../src/validation/isCat', ...)   // validateCat: controllable resolved boolean
-vi.mock('../src/lib/images', ...)         // processImage: fake ProcessedImage or throwing
+vi.mock('../src/lib/images', ...)         // processImage + deleteProcessedImages
 ```
 
 Multipart bodies: native `FormData` + `File` (Node 22), passed to
@@ -327,10 +360,15 @@ Spec files and required cases:
    `We couldn't verify this is a cat`.
 6. Short-circuit: in case 2, `validateCat` was **never called**.
 7. Success path: `validateCat` → true, `processImage` → fake paths → 200 with
-   header `HX-Redirect: /`, cat row exists with sanitized name + real paths.
-8. Orphan cleanup: `processImage` rejects → response 500 **and** the cats
-   table is empty (row deleted).
-9. Missing `Origin` header → 403 (before any guard).
+   header `HX-Redirect: /`, cat row exists with sanitized name + real paths;
+   `processImage` receives a canonical UUID storage key and observes no cat row
+   before it resolves.
+8. Processing failure: `processImage` rejects → response 500 and the cats table
+   remains empty (no placeholder row was inserted).
+9. Insert failure: install a temporary SQLite `BEFORE INSERT` trigger that
+   raises `FAIL`; response is 500, no cat row exists, and
+   `deleteProcessedImages(storageKey)` was called.
+10. Missing `Origin` header → 403 (before any guard).
 
 **`tests/votes.test.ts`** — POST `/api/cats/[id]/like`, CONTRACTS §10:
 
@@ -351,6 +389,31 @@ Spec files and required cases:
   empty after stripping → `Comment cannot be empty`.
 - second POST by same user on same cat → 400
   `You already commented on this cat`.
+- **Constraint mapping (not just the pre-check).** Racing two real requests is
+  not reproducible, so force the constraint deterministically with a trigger:
+  the pre-check finds nothing, the insert still fails, and the route must
+  answer `400 You already commented on this cat` (never 500). Verbatim:
+
+  ```ts
+  rawDb.exec(`CREATE TRIGGER dup_guard BEFORE INSERT ON comments
+    BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed'); END;`);
+  try {
+    const res = await postComment({ catId, userToken: 'fresh-user', text: 'hi' });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toBe('You already commented on this cat');
+  } finally {
+    rawDb.exec('DROP TRIGGER dup_guard');
+  }
+  ```
+
+  `RAISE(ABORT)` surfaces as `code === 'SQLITE_CONSTRAINT_TRIGGER'`, which is
+  why CONTRACTS §10 matches the `SQLITE_CONSTRAINT` **prefix** rather than one
+  exact code. An implementation that compares against `'SQLITE_CONSTRAINT_UNIQUE'`
+  alone fails this test — that is intended.
+- Success body shape: contains the refreshed first-10 list **and**
+  `id="comment-form"` with `hx-swap-oob="true"` and the text `comment posted`;
+  the response must not contain `id="comment-list"` at all (that container lives
+  in `CatModal`, not in this fragment).
 - GET pagination: insert 11 comments (distinct users) → page 1 has 10
   `created_at ASC`, page 2 has 1; `nextPage` null on the last page.
 - foreign Origin on POST → 403.
@@ -364,6 +427,31 @@ Spec files and required cases:
 - GET `/api/cats/[id]`: 404 for missing id; for a liked cat the fragment
   reflects `liked`; for an already-commented user the form is replaced by the
   notice (`canComment` false).
+- **Per-cat scoping:** with user `u1` having liked *and* commented on cat 1,
+  `GET /api/cats/2` for the same user must render unliked and `canComment`
+  true. This fails loudly if any handler chains `.where()` instead of using
+  `and()` (CONTRACTS §8).
+- `partial` export — one table-driven case, exactly these five modules:
+
+  ```ts
+  import * as catsIndex from '../src/pages/api/cats/index.astro';
+  import * as catDetail from '../src/pages/api/cats/[id]/index.astro';
+  import * as catLike from '../src/pages/api/cats/[id]/like.astro';
+  import * as catComments from '../src/pages/api/cats/[id]/comments.astro';
+  import * as submitForm from '../src/pages/api/submit-form.astro';
+
+  it.each([catsIndex, catDetail, catLike, catComments, submitForm])(
+    'exports partial = true',
+    (mod) => expect(mod.partial).toBe(true),
+  );
+  ```
+
+  A missing export silently turns every fragment into a full document.
+- `/api/submit-form` gets **no render test**. Rendering a `client:load` island
+  through the Container API requires registering the Preact server *and* client
+  renderers on the container, which is more setup than it is worth here — the
+  `partial` assertion above plus the T07 manual check (item 6) cover it. Do not
+  add a dependency or a jsdom environment to test it.
 
 ---
 
@@ -377,10 +465,18 @@ const container = await AstroContainer.create();
 const html = await container.renderToString(CatCard, { props: { cat } });
 ```
 
+This experimental API is permitted only in tests. Production routes render
+Astro components through `.astro` partial pages and must not import it.
+
 - `CatCard`: contains `hx-get="/api/cats/<id>"` and the ★ count.
 - `LikeButton`: `hx-post="/api/cats/<id>/like"`, `hx-swap="outerHTML"`.
 - `Sentinel`: `hx-trigger="revealed"`, `hx-swap="afterend"`, given URL.
-- `CommentForm`: `hx-post="/api/cats/<id>/comments"`.
+- `CommentForm`: `hx-post="/api/cats/<id>/comments"`,
+  `hx-target="#comment-list"`, `hx-swap="innerHTML"`.
+- `CommentList`: renders items + `Sentinel` only — its output contains **no**
+  `id="comment-list"` (that container belongs to `CatModal`).
+- `CatModal`: output contains exactly one `id="comment-list"` and one
+  `id="comment-form"`.
 - **Escaping:** a cat named `<script>alert(1)</script>` and a comment with the
   same text render with `&lt;script&gt;` — raw `<script>` must NOT appear in
   the HTML of `Hero`, `CatCard`, or `CommentItem`.
@@ -404,6 +500,11 @@ browser and report each item:
 4. Swipe from right edge opens; swipe right closes; a swipe starting mid-screen
    does nothing (activation zone ~20px).
 5. `/ui.js` loads with no console errors and no CSP violations.
+6. Submit modal: picking a file shows the client-side preview and the size/type
+   check fires — this is the end-to-end proof that the `SubmitForm` island
+   hydrated from the `/api/submit-form` partial.
+7. Posting a comment refreshes the list **and** swaps the form for the
+   "comment posted" notice in one response (the `hx-swap-oob` path).
 
 ---
 

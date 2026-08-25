@@ -66,7 +66,9 @@
 - Log rotation is a compose artifact (`x-logging` anchor), not prose.
 - Added `deploy/restore-images.sh` — V3's runbook restore command wrote into a
   volume that compose mounts read-only.
-- Upload route must delete the cat row if `processImage()` fails (no orphans).
+- Upload route processes files under a server-generated UUID before one final
+  cat insert; processing and insert failures clean up files (no placeholders or
+  orphans).
 - New **Task 12 (host setup)** owns provisioning/hardening/bootstrap
   (`deploy/provision.sh` + `deploy/FIRST_DEPLOY.md`) — previously prose only.
 
@@ -968,8 +970,9 @@ export async function validateCat(buf: Buffer): Promise<boolean> {
 
 - Sharp `.rotate()` honors EXIF orientation (otherwise sideways images).
 - Sharp strips EXIF/GPS metadata by default (privacy) — do **not** `withMetadata()`.
-- Filenames from DB ID, never user input (path-traversal safe):
-  `{id}_thumb.webp`, `{id}_full.webp`.
+- Filenames use a server-generated UUID storage key, independent of the DB ID
+  and never user input (path-traversal safe):
+  `{storageKey}_thumb.webp`, `{storageKey}_full.webp`.
 
 ### Upload flow
 
@@ -984,15 +987,19 @@ validateCat() (semaphore-bounded, ~200ms)
     │
     ├── below threshold ──► delete temp, reject "We couldn't verify this is a cat"
     │
-    └── cat detected ──► INSERT into cats (placeholder paths) → get id
+    └── cat detected ──► generate server UUID storage key
                             │
                             ▼
                          Sharp: rotate → thumbnail (300px) + full (1200px) → WebP
                             → save both to /var/lib/cat-ranking/uploads
                             │
-                            ├── on FAILURE ──► DELETE the cat row (no orphans), 500
+                            ├── on FAILURE ──► DELETE partial files, no DB insert, 500
                             ▼
-                         UPDATE row with real paths → HX-Redirect: /
+                         INSERT completed row once with real paths
+                            │
+                            ├── on FAILURE ──► DELETE image pair, 500
+                            ▼
+                         HX-Redirect: /
 ```
 
 ### Future: binary cat classifier
@@ -1042,12 +1049,19 @@ CREATE INDEX idx_comments_cat ON comments(cat_id, created_at);
 ### Likes transaction (idempotent on double-tap/retry)
 
 ```ts
+// better-sqlite3 reports SQLite's *extended* result codes, so a UNIQUE
+// violation arrives as 'SQLITE_CONSTRAINT_UNIQUE' (and a trigger RAISE as
+// 'SQLITE_CONSTRAINT_TRIGGER'). Match the prefix — `=== 'SQLITE_CONSTRAINT'`
+// never fires and would turn every double-tap into a 500.
+const isConstraintError = (e: unknown) =>
+  String((e as { code?: string })?.code ?? '').startsWith('SQLITE_CONSTRAINT');
+
 db.transaction(() => {
   const ipUaHash = createHash('sha256').update(`${ip}|${userAgent}`).digest('hex').slice(0, 32);
   try {
     db.insert(votes).values({ catId, userToken, ipUaHash }).run();
   } catch (e) {
-    if (e.code === 'SQLITE_CONSTRAINT') return { success: false, reason: 'already_liked' };
+    if (isConstraintError(e)) return { success: false, reason: 'already_liked' };
     throw e;
   }
   db.update(cats)
@@ -1057,6 +1071,9 @@ db.transaction(() => {
   return { success: true };
 })();
 ```
+
+The same helper guards the comment insert (`UNIQUE(cat_id, user_token)`), where
+a constraint failure maps to the contracted `400` instead of a 500.
 
 ### Ordering tiebreak
 
@@ -1146,16 +1163,23 @@ try {
 
 ## API Routes
 
+Astro-component fragment routes are stable `.astro` partial pages
+(`export const partial = true`) that render their components directly —
+including `/api/submit-form`, which needs `<SubmitForm client:load />` for the
+Preact island to hydrate. Only `/health` stays a `.ts` endpoint (it returns
+JSON). The experimental Container API is test-only and is never imported by
+production routes.
+
 | Route                     | Method | Purpose                                                                                                                                           |
 | ------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                       | GET    | Main page shell (hero + grid + sidebar)                                                                                                           |
 | `/api/cats`               | GET    | Grid HTML fragment (cards + sentinel). Params `page`, `limit`. Top cat excluded. `created_at DESC`                                                |
-| `/api/cats`               | POST   | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → insert → Sharp (row deleted on failure) → `HX-Redirect: /`         |
+| `/api/cats`               | POST   | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → UUID key → Sharp → one completed insert → `HX-Redirect: /`         |
 | `/api/submit-form`        | GET    | Submit modal content (form fragment)                                                                                                              |
 | `/api/cats/[id]`          | GET    | Modal fragment: full image, like button state, first 10 comments + sentinel, comment form or "already commented"                                  |
 | `/api/cats/[id]/like`     | POST   | Rate-limited. Record vote (txn), return updated like button HTML. Idempotent on repeat                                                            |
 | `/api/cats/[id]/comments` | GET    | Next page of comments + sentinel. `?page=N`, 10/page, `created_at ASC`                                                                            |
-| `/api/cats/[id]/comments` | POST   | Rate-limited. Validate (≤500 chars, non-empty, not already commented), sanitize, insert, return updated list + replace form with "comment posted" |
+| `/api/cats/[id]/comments` | POST   | Rate-limited. Validate (≤500 chars, non-empty, not already commented), sanitize, insert (unique constraint → same 400), return refreshed list into `#comment-list` + OOB `#comment-form` notice |
 | `/health`                 | GET    | 200 only if DB writable + uploads dir present                                                                                                     |
 
 ### Cross-cutting concerns
@@ -1176,7 +1200,7 @@ try {
 | XSS via SVG                                | Reject SVG uploads                                                   |
 | XSS via comments                           | Server-side HTML-tag strip + Astro auto-escape + strict CSP          |
 | Inline-script injection                    | CSP `script-src 'self'` (HTMX self-hosted, no inline)                |
-| Path traversal                             | Use DB ID as filename                                                |
+| Path traversal                             | Use a server-generated UUID storage key as filename                  |
 | **IP spoofing (dedupe/rate-limit bypass)** | App trusts only nginx-set `X-Real-IP`; XFF never read                |
 | DoS via upload size                        | nginx `client_max_body_size 10M` (edge) + app                        |
 | DoS via rapid uploads                      | nginx rate limit + app per-IP + IP/UA dedupe                         |
@@ -1238,7 +1262,10 @@ lives in the modal (per the component contract — tiles stay tap-to-open).
 - Open: `hx-get="/api/cats/[id]"` into `<dialog>`.
 - Like button: shared component, HTMX POST to `/api/cats/[id]/like`.
 - Comments: infinite scroll within scrollable area (10/page).
-- Comment form: HTMX POST; if already commented, shows "You commented on this cat".
+- Comment form: HTMX POST targeting `#comment-list` (`innerHTML`); the response
+  also carries an out-of-band `#comment-form` swap that replaces the form with
+  the "comment posted" notice. If already commented, the form slot shows
+  "You commented on this cat" from the start.
 - Close: `dialog.close()`.
 
 ### Comment sanitization
@@ -1309,13 +1336,13 @@ src/
 │   ├── index.astro              shell (hero + grid + sidebar)
 │   ├── health.ts                GET /health → 200 if DB writable + uploads dir OK
 │   └── api/
-│       ├── submit-form.ts       GET modal content
+│       ├── submit-form.astro    GET modal content (partial; hydrates SubmitForm)
 │       └── cats/
-│           ├── index.ts         GET grid | POST upload
+│           ├── index.astro      GET grid | POST upload
 │           └── [id]/
-│               ├── index.ts     GET detail modal
-│               ├── like.ts      POST vote (txn) → updated button
-│               └── comments.ts  GET paged | POST add
+│               ├── index.astro  GET detail modal
+│               ├── like.astro   POST vote (txn) → updated button
+│               └── comments.astro  GET paged | POST add
 ├── components/
 │   ├── Hero.astro  CatGrid.astro  CatCard.astro  LikeButton.astro
 │   ├── Sentinel.astro  CatModal.astro  CommentList.astro  CommentItem.astro
@@ -1420,13 +1447,15 @@ External binaries (via pinned Docker images): `nginx:1.27-alpine`,
 
 - [ ] Magic-byte + size + extension + SVG guards
 - [ ] ONNX validation behind `validateCat()` + semaphore (model in `models/`)
-- [ ] Sharp rotate → thumb + full → WebP → uploads volume
+- [ ] Sharp rotate → thumb + full → WebP under UUID storage key → uploads volume
 
 ### Phase 5 — API routes
 
-- [ ] GET/POST `/api/cats` (orphan-row cleanup on processImage failure)
+- [ ] GET/POST `/api/cats` (process before one insert; file cleanup on failure)
 - [ ] GET `/api/submit-form`; GET `/api/cats/[id]`; POST `/api/cats/[id]/like`
 - [ ] GET/POST `/api/cats/[id]/comments`; GET `/health`
+- [ ] Astro fragment routes use `.astro` partial pages; Container API is test-only
+- [ ] Per-cat lookups compose predicates with `and()` (never chained `.where()`)
 
 ### Phase 6 — UI components
 

@@ -23,10 +23,19 @@ Plus the shell: `src/pages/index.astro`.
     `hx-swap="innerHTML"`, and open the dialog (paired with Task 07 JS).
   - `LikeButton`: `hx-post="/api/cats/{id}/like"`, `hx-swap="outerHTML"`.
   - `Sentinel`: `hx-get={url}` `hx-trigger="revealed"` `hx-swap="afterend"`.
-  - `CommentForm`: `hx-post="/api/cats/{id}/comments"`, targets `#comment-list`
-    region; on success the form is replaced (route returns the replacement).
+  - `CommentForm`: `hx-post="/api/cats/{id}/comments"`,
+    `hx-target="#comment-list"`, `hx-swap="innerHTML"`. The form element itself
+    carries these — do not put them on the submit button.
 - **IDs** from CONTRACTS §7: `#modal`, `#modal-body`, `#sidebar`,
-  `#sidebar-toggle`, `#sidebar-backdrop`, `#cat-grid`, `#comment-list`.
+  `#sidebar-toggle`, `#sidebar-backdrop`, `#cat-grid`, `#comment-list`,
+  `#comment-form`.
+- **Comment region:** `CatModal` renders the two-container skeleton in
+  CONTRACTS §7 exactly as written there (`<div id="comment-list">` wrapping
+  `CommentList`, then `<div id="comment-form">` holding either `CommentForm` or
+  the literal notice `You commented on this cat`). Task 05's POST response
+  replaces the second container out-of-band, so the id must be on that `<div>`.
+- **`CommentList` renders no wrapper id** — just the `CommentItem`s and the
+  `Sentinel`. Pages appended by the sentinel would otherwise repeat the id.
 - **Escaping:** render `cat.name` and `comment.text` as plain text (Astro
   auto-escapes `{value}`) — never `set:html`.
 - **Grid CSS:** `display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr))`.
@@ -65,4 +74,6 @@ npm run build
 
 Build succeeds. Manually confirm (dev server) that the page renders the hero,
 grid, sidebar, and an (initially empty) modal, and that markup contains the
-exact IDs and `hx-*` attributes listed above. Report which components render.
+exact IDs and `hx-*` attributes listed above — including exactly one
+`#comment-list` and one `#comment-form` per rendered modal. Report which
+components render.

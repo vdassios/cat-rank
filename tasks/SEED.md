@@ -29,15 +29,16 @@ or the ONNX validator.
      images. `public/uploads/` is already in `.gitignore` — verify, and append
      it only if missing.
 3. For each of 3 sample cats:
-   - Insert the `cats` row first with placeholder paths to obtain its
-     autoincrement `id` (mirror the upload route's "insert → get id → name files
-     by id" approach; filenames use the numeric id only — CONTRACTS §9).
+   - Assign a fixed, valid UUID storage key for that sample cat. The key is
+     independent of its autoincrement DB ID and makes repeated runs deterministic
+     (mirror the upload route's storage-key flow — CONTRACTS §9).
    - Generate two placeholder WebP files with **Sharp** (already a dependency —
-     no new deps): a 300px thumbnail (`{id}_thumb.webp`) and a 1200px full
-     (`{id}_full.webp`). A solid color or simple gradient with the cat's name
-     drawn on it is fine; no real photo or network fetch.
-   - Update the row so `thumbnail_path = /uploads/{id}_thumb.webp` and
-     `image_path = /uploads/{id}_full.webp` (CONTRACTS §4 path format).
+     no new deps): a 300px thumbnail (`{storageKey}_thumb.webp`) and a 1200px
+     full (`{storageKey}_full.webp`). A solid color or simple gradient with the
+     cat's name drawn on it is fine; no real photo or network fetch.
+   - After both files exist, insert the completed `cats` row exactly once with
+     `thumbnail_path = /uploads/{storageKey}_thumb.webp` and
+     `image_path = /uploads/{storageKey}_full.webp` (CONTRACTS §4 path format).
 4. Insert a handful of `votes` (distinct `user_token` + `ip_ua_hash` values) via
    the like transaction semantics (CONTRACTS §10) so `likes_count` differs across
    cats — give them e.g. 5, 8, 3 likes so the hero/leaderboard ordering and the
