@@ -1,0 +1,83 @@
+# Required secrets (set in GitHub repo Settings → Secrets and variables → Actions):
+#   MODEL_URL        — URL to download mobilenetv2-cat.onnx
+#   MODEL_SHA256     — SHA-256 checksum of the model file
+#   DEPLOY_HOST      — VPS hostname or IP
+#   DEPLOY_USER      — SSH user on the VPS
+#   DEPLOY_SSH_KEY   — private SSH key for DEPLOY_USER
+#   (GITHUB_TOKEN is provided automatically by Actions)
+name: deploy
+on: { push: { branches: [main] } }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm } # pin: must match the Dockerfile
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm run typecheck --if-present
+      - run: npm test # dedupe txn + validation guards (see Testing)
+      - run: ./scripts/fetch-model.sh # curl + sha256sum --check → models/ (in build context)
+        env:
+          MODEL_URL: ${{ secrets.MODEL_URL }}
+          MODEL_SHA256: ${{ secrets.MODEL_SHA256 }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/cat-ranking
+            git pull --ff-only          # compose file + nginx.conf + scripts only
+
+            # Pin the exact image for reproducibility + rollback:
+            # rollback = set an old sha here and `docker compose up -d app`.
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${{ github.sha }}|" .env
+            else
+              echo "IMAGE_TAG=${{ github.sha }}" >> .env
+            fi
+
+            docker compose pull app
+
+            # Migrate BEFORE the new code serves traffic. The old container is
+            # still running here, so migrations must be additive/backward-
+            # compatible (no drops/renames in the same deploy as the code that
+            # stops using them).
+            docker compose run --rm --no-deps app node dist/scripts/migrate.mjs
+
+            docker compose up -d
+
+            # Health gate with retries (no sleep-and-hope)
+            for i in $(seq 1 10); do
+              if docker compose exec -T app curl -fsS http://localhost:3000/health; then
+                echo "deploy healthy"; exit 0
+              fi
+              sleep 2
+            done
+            echo "deploy health check FAILED" >&2
+            exit 1
