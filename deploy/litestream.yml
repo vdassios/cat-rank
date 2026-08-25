@@ -1,0 +1,14 @@
+dbs:
+  - path: /app/data/cats.db
+    replicas:
+      - type: s3
+        bucket: cat-ranking
+        path: db
+        endpoint: https://<accountid>.r2.cloudflarestorage.com
+        region: auto
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+        sync-interval: 1s
+        snapshot-interval: 6h
+        retention: 168h
+        retention-check-interval: 1h

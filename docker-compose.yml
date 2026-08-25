@@ -1,0 +1,92 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  app:
+    image: ghcr.io/vdassios/cat-rank:${IMAGE_TAG:-latest}
+    # Local-dev alternative (never enable together with image:):
+    # build: { context: ., dockerfile: deploy/Dockerfile }
+    restart: always
+    logging: *logging
+    expose:
+      - '3000'
+    volumes:
+      - ./data:/app/data
+      - uploads:/var/lib/cat-ranking/uploads
+      - ./deploy/litestream.yml:/etc/litestream.yml:ro
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3000
+      - DATABASE_PATH=/app/data/cats.db
+      - UPLOAD_DIR=/var/lib/cat-ranking/uploads
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN}
+      - HMAC_SECRET=${HMAC_SECRET}
+      - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  litestream:
+    image: litestream/litestream:0.3.13
+    restart: always
+    logging: *logging
+    volumes:
+      - ./data:/app/data
+      - ./deploy/litestream.yml:/etc/litestream.yml:ro
+    environment:
+      - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+    command: ['replicate']
+    depends_on:
+      app:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    logging: *logging
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - uploads:/var/www/uploads:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - app
+
+  certbot:
+    image: certbot/certbot:v2.11.0
+    restart: always
+    logging: *logging
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+
+  backup-images:
+    image: rclone/rclone:1.67
+    restart: always
+    logging: *logging
+    volumes:
+      - uploads:/data:ro
+      - ./deploy/backup-images.sh:/backup-images.sh:ro
+    environment:
+      - RCLONE_CONFIG_R2_TYPE=s3
+      - RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+      - RCLONE_CONFIG_R2_ENDPOINT=${R2_ENDPOINT}
+      - RCLONE_CONFIG_R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - HEALTHCHECK_IMAGES_URL=${HEALTHCHECK_IMAGES_URL}
+    entrypoint: "/bin/sh -c 'while :; do /backup-images.sh; sleep 86400; done'"
+
+volumes:
+  uploads:
