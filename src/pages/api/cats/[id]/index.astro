@@ -1,0 +1,57 @@
+---
+import CatModal from '../../../../components/CatModal.astro';
+import { db } from '../../../../db/connection';
+import { cats, votes, comments } from '../../../../db/schema';
+import { and, eq, asc } from 'drizzle-orm';
+
+export const partial = true;
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+if (!Number.isFinite(id)) {
+  return new Response('Not Found', { status: 404 });
+}
+
+const catResults = db.select().from(cats).where(eq(cats.id, id)).limit(1).all();
+if (catResults.length === 0) {
+  return new Response('Not Found', { status: 404 });
+}
+
+const cat = catResults[0];
+
+const voteRow = db
+  .select()
+  .from(votes)
+  .where(and(eq(votes.catId, id), eq(votes.userToken, Astro.locals.userToken)))
+  .limit(1)
+  .all();
+
+const liked = voteRow.length > 0;
+
+const commentRow = db
+  .select()
+  .from(comments)
+  .where(and(eq(comments.catId, id), eq(comments.userToken, Astro.locals.userToken)))
+  .limit(1)
+  .all();
+
+const canComment = commentRow.length === 0;
+
+const commentResults = db
+  .select()
+  .from(comments)
+  .where(eq(comments.catId, id))
+  .orderBy(asc(comments.createdAt))
+  .limit(10)
+  .all();
+
+const nextPage = commentResults.length === 10 ? 2 : null;
+---
+
+<CatModal
+  cat={cat}
+  liked={liked}
+  comments={commentResults}
+  nextPage={nextPage}
+  canComment={canComment}
+/>

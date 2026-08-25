@@ -1,0 +1,109 @@
+---
+import CatGrid from '../../../components/CatGrid.astro';
+import { db } from '../../../db/connection';
+import { cats } from '../../../db/schema';
+import { desc, asc, ne } from 'drizzle-orm';
+import { checkOrigin } from '../../../lib/csrf';
+import { detectMime } from '../../../validation/mime';
+import { validateCat } from '../../../validation/isCat';
+import { processImage, deleteProcessedImages } from '../../../lib/images';
+
+export const partial = true;
+export const prerender = false;
+
+if (Astro.request.method === 'POST') {
+  if (!checkOrigin(Astro.request)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const formData = await Astro.request.formData();
+  const image = formData.get('image') as File | null;
+  const nameRaw = formData.get('name') as string | null;
+
+  if (!image || image.size === 0) {
+    return new Response('No image provided', { status: 400 });
+  }
+
+  if (image.size > 10 * 1024 * 1024) {
+    return new Response('File too large (max 10MB)', { status: 400 });
+  }
+
+  const buf = Buffer.from(await image.arrayBuffer());
+
+  const mime = detectMime(buf);
+  if (!mime || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
+    return new Response('Unsupported format', { status: 400 });
+  }
+
+  const extMatch = image.name.toLowerCase().match(/\.([a-z]+)$/);
+  const ext = extMatch ? `.${extMatch[1]}` : '';
+  if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+    return new Response('Unsupported file type', { status: 400 });
+  }
+
+  const head = buf.toString('utf-8', 0, Math.min(buf.length, 256)).toLowerCase().trimStart();
+  if (head.startsWith('<svg') || head.startsWith('<?xml')) {
+    return new Response('SVG files not allowed', { status: 400 });
+  }
+
+  const isCat = await validateCat(buf);
+  if (!isCat) {
+    return new Response("We couldn't verify this is a cat", { status: 400 });
+  }
+
+  const name = (nameRaw ?? image.name.replace(/\.[^.]+$/, ''))
+    .replace(/<[^>]*>/g, '')
+    .trim()
+    .slice(0, 60);
+
+  const storageKey = crypto.randomUUID();
+
+  let processed;
+  try {
+    processed = await processImage(buf, storageKey);
+  } catch {
+    return new Response('Internal Server Error', { status: 500 });
+  }
+
+  try {
+    db.insert(cats)
+      .values({
+        name,
+        thumbnailPath: processed.thumbnailPath,
+        imagePath: processed.imagePath,
+      })
+      .run();
+  } catch {
+    await deleteProcessedImages(storageKey);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+
+  return new Response(null, { status: 200, headers: { 'HX-Redirect': '/' } });
+}
+
+const url = Astro.url;
+const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+const limitNum = Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 12));
+const offset = (page - 1) * limitNum;
+
+const topCatRows = db
+  .select()
+  .from(cats)
+  .orderBy(desc(cats.likesCount), asc(cats.id))
+  .limit(1)
+  .all();
+const topCatId = topCatRows[0]?.id ?? -1;
+
+const gridCats = db
+  .select()
+  .from(cats)
+  .where(ne(cats.id, topCatId))
+  .orderBy(desc(cats.createdAt))
+  .limit(limitNum)
+  .offset(offset)
+  .all();
+
+const nextPage = gridCats.length === limitNum ? page + 1 : null;
+---
+
+<CatGrid cats={gridCats} nextPage={nextPage} />

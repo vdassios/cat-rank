@@ -1,0 +1,101 @@
+---
+import CommentList from '../../../../components/CommentList.astro';
+import { db } from '../../../../db/connection';
+import { cats, comments } from '../../../../db/schema';
+import { and, eq, asc } from 'drizzle-orm';
+import { checkOrigin } from '../../../../lib/csrf';
+
+export const partial = true;
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+if (!Number.isFinite(id)) {
+  return new Response('Not Found', { status: 404 });
+}
+
+const catResults = db.select().from(cats).where(eq(cats.id, id)).limit(1).all();
+if (catResults.length === 0) {
+  return new Response('Not Found', { status: 404 });
+}
+
+function isConstraintError(err: unknown): boolean {
+  return String((err as { code?: string })?.code ?? '').startsWith('SQLITE_CONSTRAINT');
+}
+
+let justPosted = false;
+
+if (Astro.request.method === 'POST') {
+  if (!checkOrigin(Astro.request)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  const formData = await Astro.request.formData();
+  const rawText = (formData.get('text') as string) ?? '';
+
+  const sanitized = rawText.replace(/<[^>]*>/g, '').trim();
+
+  if (!sanitized) {
+    return new Response('Comment cannot be empty', { status: 400 });
+  }
+
+  if (sanitized.length > 500) {
+    return new Response('Comment too long (max 500)', { status: 400 });
+  }
+
+  const existing = db
+    .select()
+    .from(comments)
+    .where(and(eq(comments.catId, id), eq(comments.userToken, Astro.locals.userToken)))
+    .limit(1)
+    .all();
+
+  if (existing.length > 0) {
+    return new Response('You already commented on this cat', { status: 400 });
+  }
+
+  try {
+    db.insert(comments)
+      .values({
+        catId: id,
+        userToken: Astro.locals.userToken,
+        text: sanitized,
+      })
+      .run();
+  } catch (err: unknown) {
+    if (isConstraintError(err)) {
+      return new Response('You already commented on this cat', { status: 400 });
+    }
+    throw err;
+  }
+
+  justPosted = true;
+}
+
+const url = Astro.url;
+let page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+if (justPosted) {
+  page = 1;
+}
+const limit = 10;
+const offset = (page - 1) * limit;
+
+const commentResults = db
+  .select()
+  .from(comments)
+  .where(eq(comments.catId, id))
+  .orderBy(asc(comments.createdAt))
+  .limit(limit)
+  .offset(offset)
+  .all();
+
+const nextPage = commentResults.length === limit ? page + 1 : null;
+---
+
+<CommentList comments={commentResults} catId={id} nextPage={nextPage} />
+{
+  justPosted && (
+    <div id="comment-form" hx-swap-oob="true">
+      comment posted
+    </div>
+  )
+}
