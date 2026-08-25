@@ -77,6 +77,11 @@
 ## Design principles
 
 - **Mobile-first** — layouts designed for mobile, scaled up.
+- **Astro styles are bottom-of-file blocks** — when a `.astro` file defines
+  CSS, place all of that CSS in a plain `<style>` block after the component's
+  template markup, as the final top-level block in the file. Never put CSS in
+  an element's `style` attribute or generate an inline style attribute from an
+  Astro expression. Files that need no CSS omit the `<style>` block.
 - **Minimal JavaScript** — HTMX for interactions, Preact islands only where
   necessary (~60 lines custom JS total).
 - **Simple, cheap, self-hosted** — single Hetzner CX22 VPS, ~€5/mo, no cloud lock-in.
@@ -1170,17 +1175,17 @@ Preact island to hydrate. Only `/health` stays a `.ts` endpoint (it returns
 JSON). The experimental Container API is test-only and is never imported by
 production routes.
 
-| Route                     | Method | Purpose                                                                                                                                           |
-| ------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                       | GET    | Main page shell (hero + grid + sidebar)                                                                                                           |
-| `/api/cats`               | GET    | Grid HTML fragment (cards + sentinel). Params `page`, `limit`. Top cat excluded. `created_at DESC`                                                |
-| `/api/cats`               | POST   | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → UUID key → Sharp → one completed insert → `HX-Redirect: /`         |
-| `/api/submit-form`        | GET    | Submit modal content (form fragment)                                                                                                              |
-| `/api/cats/[id]`          | GET    | Modal fragment: full image, like button state, first 10 comments + sentinel, comment form or "already commented"                                  |
-| `/api/cats/[id]/like`     | POST   | Rate-limited. Record vote (txn), return updated like button HTML. Idempotent on repeat                                                            |
-| `/api/cats/[id]/comments` | GET    | Next page of comments + sentinel. `?page=N`, 10/page, `created_at ASC`                                                                            |
+| Route                     | Method | Purpose                                                                                                                                                                                         |
+| ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                       | GET    | Main page shell (hero + grid + sidebar)                                                                                                                                                         |
+| `/api/cats`               | GET    | Grid HTML fragment (cards + sentinel). Params `page`, `limit`. Top cat excluded. `created_at DESC`                                                                                              |
+| `/api/cats`               | POST   | Multipart upload (`hx-encoding="multipart/form-data"`). Guards → validateCat → UUID key → Sharp → one completed insert → `HX-Redirect: /`                                                       |
+| `/api/submit-form`        | GET    | Submit modal content (form fragment)                                                                                                                                                            |
+| `/api/cats/[id]`          | GET    | Modal fragment: full image, like button state, first 10 comments + sentinel, comment form or "already commented"                                                                                |
+| `/api/cats/[id]/like`     | POST   | Rate-limited. Record vote (txn), return updated like button HTML. Idempotent on repeat                                                                                                          |
+| `/api/cats/[id]/comments` | GET    | Next page of comments + sentinel. `?page=N`, 10/page, `created_at ASC`                                                                                                                          |
 | `/api/cats/[id]/comments` | POST   | Rate-limited. Validate (≤500 chars, non-empty, not already commented), sanitize, insert (unique constraint → same 400), return refreshed list into `#comment-list` + OOB `#comment-form` notice |
-| `/health`                 | GET    | 200 only if DB writable + uploads dir present                                                                                                     |
+| `/health`                 | GET    | 200 only if DB writable + uploads dir present                                                                                                                                                   |
 
 ### Cross-cutting concerns
 

@@ -294,20 +294,29 @@ CREATE INDEX idx_comments_cat ON comments(cat_id, created_at);
 All components are Astro (`.astro`) except `SubmitForm.tsx` (Preact). Routes in
 §8 render specific components — names and props must match.
 
-| Component           | Props                                                                                              | Renders                                                     |
-| ------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `Hero.astro`        | `{ cat: Cat \| null }`                                                                             | top-rated cat card + Submit button                          |
-| `CatGrid.astro`     | `{ cats: Cat[]; nextPage: number \| null }`                                                        | tiles + `Sentinel` if more                                  |
-| `CatCard.astro`     | `{ cat: Cat }`                                                                                     | one grid tile (thumb + ★count), `hx-get="/api/cats/{id}"`   |
-| `LikeButton.astro`  | `{ cat: Cat; liked: boolean }`                                                                     | ★ button, `hx-post="/api/cats/{id}/like"`                   |
-| `Sentinel.astro`    | `{ url: string }`                                                                                  | `hx-get={url}` `hx-trigger="revealed"` `hx-swap="afterend"` |
+**Astro CSS placement (mandatory):** In every `.astro` file that defines CSS,
+the file order MUST be: (1) frontmatter, (2) template markup, then (3) one plain
+`<style>` block as the final top-level block in the file. Put all CSS declarations
+for that file inside this bottom `<style>` block. Do not use an HTML `style`
+attribute, an Astro expression that generates a `style` attribute, or a
+template-level `<style>` block interleaved with markup. If the file needs no CSS,
+omit the `<style>` block. This rule does not apply to `SubmitForm.tsx`, which is
+not an Astro component.
+
+| Component           | Props                                                                                              | Renders                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `Hero.astro`        | `{ cat: Cat \| null }`                                                                             | top-rated cat card + Submit button                            |
+| `CatGrid.astro`     | `{ cats: Cat[]; nextPage: number \| null }`                                                        | tiles + `Sentinel` if more                                    |
+| `CatCard.astro`     | `{ cat: Cat }`                                                                                     | one grid tile (thumb + ★count), `hx-get="/api/cats/{id}"`     |
+| `LikeButton.astro`  | `{ cat: Cat; liked: boolean }`                                                                     | ★ button, `hx-post="/api/cats/{id}/like"`                     |
+| `Sentinel.astro`    | `{ url: string }`                                                                                  | `hx-get={url}` `hx-trigger="revealed"` `hx-swap="afterend"`   |
 | `CatModal.astro`    | `{ cat: Cat; liked: boolean; comments: Comment[]; nextPage: number \| null; canComment: boolean }` | full image + `LikeButton` + the comment region skeleton below |
-| `CommentList.astro` | `{ comments: Comment[]; catId: number; nextPage: number \| null }`                                 | bare items + Sentinel if more (**no wrapper id**)           |
-| `CommentItem.astro` | `{ comment: Comment }`                                                                             | one comment (escaped text + timestamp)                      |
-| `CommentForm.astro` | `{ catId: number }`                                                                                | textarea + submit, `hx-post`/`hx-target="#comment-list"`     |
-| `Leaderboard.astro` | `{ cats: Cat[] }`                                                                                  | top-10 list (thumb + name + ★)                              |
-| `Sidebar.astro`     | `{ cats: Cat[] }`                                                                                  | overlay wrapping `Leaderboard`                              |
-| `SubmitForm.tsx`    | `{}`                                                                                               | file input + name + client-side preview/validation          |
+| `CommentList.astro` | `{ comments: Comment[]; catId: number; nextPage: number \| null }`                                 | bare items + Sentinel if more (**no wrapper id**)             |
+| `CommentItem.astro` | `{ comment: Comment }`                                                                             | one comment (escaped text + timestamp)                        |
+| `CommentForm.astro` | `{ catId: number }`                                                                                | textarea + submit, `hx-post`/`hx-target="#comment-list"`      |
+| `Leaderboard.astro` | `{ cats: Cat[] }`                                                                                  | top-10 list (thumb + name + ★)                                |
+| `Sidebar.astro`     | `{ cats: Cat[] }`                                                                                  | overlay wrapping `Leaderboard`                                |
+| `SubmitForm.tsx`    | `{}`                                                                                               | file input + name + client-side preview/validation            |
 
 **HTML/ID conventions (so JS and HTMX line up):**
 
@@ -332,7 +341,7 @@ All components are Astro (`.astro`) except `SubmitForm.tsx` (Preact). Routes in
 **Three near-identical notice strings — do not interchange them:**
 
 | Where                                                | Exact text                          |
-| ---------------------------------------------------- | ------------------------------------- |
+| ---------------------------------------------------- | ----------------------------------- |
 | `#comment-form` on load when `canComment` is `false` | `You commented on this cat`         |
 | `#comment-form` after a successful POST (OOB swap)   | `comment posted`                    |
 | `400` response body when the duplicate guard rejects | `You already commented on this cat` |
@@ -345,7 +354,7 @@ All POST handlers MUST: (1) call `checkOrigin(request)` → 403 if false;
 (2) read `locals.userToken` / `locals.clientIp`. Redirects use the `HX-Redirect`
 response header (never 302).
 
-**Content types.** Only *successful* fragment responses must be
+**Content types.** Only _successful_ fragment responses must be
 `Content-Type: text/html` — that is what Astro sets for a rendered partial page,
 so no explicit header is needed there. Error responses (the §9 guard strings,
 `Forbidden`, `Not Found`) are bare `Response` bodies and stay plain text; HTMX
@@ -366,17 +375,17 @@ endpoint using Preact's server renderer would emit static markup with no
 hydration script, which the client-side preview/validation needs. `/health`
 stays a `.ts` API endpoint — it returns JSON, not a fragment.
 
-| Route                     | Method | Request                                  | Success response                                                                                                      |
-| ------------------------- | ------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/`                       | GET    | —                                        | full HTML page (`index.astro`)                                                                                        |
-| `/api/cats`               | GET    | `?page=N&limit=12`                       | `200` HTML: `CatGrid` fragment, `created_at DESC`, **top cat excluded**, 12/page                                      |
-| `/api/cats`               | POST   | multipart: `image` (file), `name` (text) | on success `200` + header `HX-Redirect: /`; on reject `400` HTML error string (see §9)                                |
-| `/api/submit-form`        | GET    | —                                        | `200` HTML: `SubmitForm` island wrapper                                                                               |
-| `/api/cats/[id]`          | GET    | —                                        | `200` HTML: `CatModal` fragment; `404` if no cat                                                                      |
-| `/api/cats/[id]/like`     | POST   | —                                        | `200` HTML: updated `LikeButton` (idempotent if already liked)                                                        |
-| `/api/cats/[id]/comments` | GET    | `?page=N`                                | `200` HTML: `CommentList` page, `created_at ASC`, 10/page                                                             |
+| Route                     | Method | Request                                  | Success response                                                                                                                 |
+| ------------------------- | ------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                       | GET    | —                                        | full HTML page (`index.astro`)                                                                                                   |
+| `/api/cats`               | GET    | `?page=N&limit=12`                       | `200` HTML: `CatGrid` fragment, `created_at DESC`, **top cat excluded**, 12/page                                                 |
+| `/api/cats`               | POST   | multipart: `image` (file), `name` (text) | on success `200` + header `HX-Redirect: /`; on reject `400` HTML error string (see §9)                                           |
+| `/api/submit-form`        | GET    | —                                        | `200` HTML: `SubmitForm` island wrapper                                                                                          |
+| `/api/cats/[id]`          | GET    | —                                        | `200` HTML: `CatModal` fragment; `404` if no cat                                                                                 |
+| `/api/cats/[id]/like`     | POST   | —                                        | `200` HTML: updated `LikeButton` (idempotent if already liked)                                                                   |
+| `/api/cats/[id]/comments` | GET    | `?page=N`                                | `200` HTML: `CommentList` page, `created_at ASC`, 10/page                                                                        |
 | `/api/cats/[id]/comments` | POST   | form: `text`                             | `200` HTML: fresh first-10 `CommentList` (swapped into `#comment-list`) + OOB `#comment-form` notice; `400` on invalid/duplicate |
-| `/health`                 | GET    | —                                        | `200` JSON `{"status":"ok"}` if DB writable + upload dir OK; else `503` text `unhealthy`                              |
+| `/health`                 | GET    | —                                        | `200` JSON `{"status":"ok"}` if DB writable + upload dir OK; else `503` text `unhealthy`                                         |
 
 **Pagination:** `limit` for grid defaults to 12, comments fixed at 10. `page`
 is 1-based. `nextPage` is `page+1` when a full page was returned, else `null`.
@@ -386,13 +395,16 @@ is 1-based. `nextPage` is `page+1` when a full page was returned, else `null`.
 `(catId, userToken)`.
 
 Both are **two-column** lookups. In Drizzle, chaining `.where()` twice
-*replaces* the first predicate instead of combining it — a chained query
-degenerates into "did this user like/comment on *anything*". Always compose
+_replaces_ the first predicate instead of combining it — a chained query
+degenerates into "did this user like/comment on _anything_". Always compose
 with `and()`:
 
 ```ts
 import { and, eq } from 'drizzle-orm';
-db.select().from(votes).where(and(eq(votes.catId, id), eq(votes.userToken, token))).limit(1);
+db.select()
+  .from(votes)
+  .where(and(eq(votes.catId, id), eq(votes.userToken, token)))
+  .limit(1);
 ```
 
 **Comment POST swap shape** (so the list and the form both update from one
@@ -487,10 +499,10 @@ Define this helper **locally in each of the two route files** (it is three
 lines; no new shared module, no change to §2's file list). Handling is per
 route — anything else rethrows:
 
-| Route                          | On `isConstraintError`                                    |
-| ------------------------------ | ----------------------------------------------------------- |
-| `POST /api/cats/[id]/like`     | `200` with the liked `LikeButton`, count unchanged         |
-| `POST /api/cats/[id]/comments` | `400` body `You already commented on this cat`             |
+| Route                          | On `isConstraintError`                             |
+| ------------------------------ | -------------------------------------------------- |
+| `POST /api/cats/[id]/like`     | `200` with the liked `LikeButton`, count unchanged |
+| `POST /api/cats/[id]/comments` | `400` body `You already commented on this cat`     |
 
 ---
 

@@ -38,6 +38,13 @@ Plus the shell: `src/pages/index.astro`.
   `Sentinel`. Pages appended by the sentinel would otherwise repeat the id.
 - **Escaping:** render `cat.name` and `comment.text` as plain text (Astro
   auto-escapes `{value}`) — never `set:html`.
+- **Astro CSS placement:** for every `.astro` component and `index.astro` that
+  needs CSS, put all CSS declarations in one plain `<style>` block after all
+  template markup; the closing `</style>` MUST be the final content in the file.
+  Never use an element `style` attribute, never generate a `style` attribute
+  from an Astro expression, and never interleave a `<style>` block with the
+  markup. If a file needs no CSS, omit the `<style>` block. `SubmitForm.tsx` is
+  excluded because it is Preact, not Astro.
 - **Grid CSS:** `display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr))`.
 - **Mobile-first** styling; the sidebar is an overlay from the right using
   `transform: translateX()` (animation only — the swipe/toggle JS is Task 07).
