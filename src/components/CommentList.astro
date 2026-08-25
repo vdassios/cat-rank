@@ -1,0 +1,16 @@
+---
+import type { Comment } from '../db/schema';
+import CommentItem from './CommentItem.astro';
+import Sentinel from './Sentinel.astro';
+
+interface Props {
+  comments: Comment[];
+  catId: number;
+  nextPage: number | null;
+}
+
+const { comments, catId, nextPage } = Astro.props;
+---
+
+{comments.map((comment) => <CommentItem comment={comment} />)}
+{nextPage !== null && <Sentinel url={`/api/cats/${catId}/comments?page=${nextPage}`} />}

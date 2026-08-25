@@ -1,0 +1,15 @@
+---
+import Sentinel from './Sentinel.astro';
+import CatCard from './CatCard.astro';
+import type { Cat } from '../db/schema';
+
+interface Props {
+  cats: Cat[];
+  nextPage: number | null;
+}
+
+const { cats, nextPage } = Astro.props;
+---
+
+{cats.map((cat) => <CatCard cat={cat} />)}
+{nextPage !== null && <Sentinel url={`/api/cats?page=${nextPage}`} />}

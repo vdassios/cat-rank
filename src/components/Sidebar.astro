@@ -1,0 +1,51 @@
+---
+import type { Cat } from '../db/schema';
+import Leaderboard from './Leaderboard.astro';
+
+interface Props {
+  cats: Cat[];
+}
+
+const { cats } = Astro.props;
+---
+
+<div id="sidebar-backdrop"></div>
+<div id="sidebar">
+  <h3 class="sidebar-heading">Leaderboard</h3>
+  <Leaderboard cats={cats} />
+</div>
+
+<style>
+  .sidebar-heading {
+    margin: 0 0 0.75rem;
+  }
+  #sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 280px;
+    max-width: 85vw;
+    height: 100%;
+    background: #fff;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  #sidebar.open {
+    transform: translateX(0);
+  }
+  #sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 99;
+  }
+  #sidebar-backdrop.show {
+    display: block;
+  }
+</style>

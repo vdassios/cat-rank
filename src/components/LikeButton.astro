@@ -1,0 +1,24 @@
+---
+import type { Cat } from '../db/schema';
+
+interface Props {
+  cat: Cat;
+  liked: boolean;
+}
+
+const { cat, liked } = Astro.props;
+---
+
+<button class="like-button" hx-post={`/api/cats/${cat.id}/like`} hx-swap="outerHTML">
+  {liked ? '★' : '☆'}
+  {cat.likesCount}
+</button>
+
+<style>
+  .like-button {
+    font-size: 1.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+</style>

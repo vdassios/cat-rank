@@ -1,7 +1,38 @@
 ---
-// SRI hash for public/htmx.min.js (recorded by Task 00 for Task 06):
-// integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
-// NOTE: placeholder shell — Task 06 replaces this with the real hero/grid/sidebar.
+import Hero from '../components/Hero.astro';
+import CatGrid from '../components/CatGrid.astro';
+import Sidebar from '../components/Sidebar.astro';
+import { db } from '../db/connection';
+import { cats } from '../db/schema';
+import { desc, asc, ne } from 'drizzle-orm';
+
+const topCatRow = db
+  .select()
+  .from(cats)
+  .orderBy(desc(cats.likesCount), asc(cats.id))
+  .limit(1)
+  .all();
+const topCat = topCatRow[0] ?? null;
+
+const topCatId = topCat?.id ?? -1;
+
+const initialCats = db
+  .select()
+  .from(cats)
+  .where(ne(cats.id, topCatId))
+  .orderBy(desc(cats.createdAt))
+  .limit(13)
+  .all();
+
+const hasMore = initialCats.length > 12;
+const pageCats = hasMore ? initialCats.slice(0, 12) : initialCats;
+
+const leaderboardCats = db
+  .select()
+  .from(cats)
+  .orderBy(desc(cats.likesCount), asc(cats.id))
+  .limit(10)
+  .all();
 ---
 
 <html lang="en">
@@ -9,8 +40,83 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cat Ranking</title>
+    <script
+      src="/htmx.min.js"
+      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+      crossorigin="anonymous"></script>
   </head>
   <body>
-    <h1>Cat Ranking</h1>
+    <header class="page-header">
+      <h1 class="page-title">Cat Ranking</h1>
+      <button id="sidebar-toggle" class="sidebar-toggle-btn"> &#9776; </button>
+    </header>
+
+    <main class="page-main">
+      <Hero cat={topCat} />
+      <div id="cat-grid" class="cat-grid">
+        <CatGrid cats={pageCats} nextPage={hasMore ? 2 : null} />
+      </div>
+    </main>
+
+    <Sidebar cats={leaderboardCats} />
+
+    <dialog id="modal" class="page-modal">
+      <div id="modal-body"></div>
+    </dialog>
+
+    <script type="module" src="/ui.js"></script>
   </body>
 </html>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family:
+      system-ui,
+      -apple-system,
+      sans-serif;
+    background: #f9f9f9;
+    color: #222;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+  }
+  .page-title {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .sidebar-toggle-btn {
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .page-main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+  .page-modal {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem;
+    max-width: 600px;
+    width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+</style>

@@ -1,0 +1,53 @@
+---
+import type { Cat } from '../db/schema';
+
+interface Props {
+  cat: Cat | null;
+}
+
+const { cat } = Astro.props;
+---
+
+<div class="hero">
+  {
+    cat ? (
+      <>
+        <img class="hero-img" src={cat.imagePath} alt={cat.name} />
+        <h2 class="hero-name">{cat.name}</h2>
+        <p class="hero-likes">{cat.likesCount} ★</p>
+      </>
+    ) : (
+      <p>No cats yet. Be the first to submit!</p>
+    )
+  }
+  <button class="hero-submit" hx-get="/api/submit-form" hx-target="#modal-body" hx-swap="innerHTML">
+    Submit a Cat
+  </button>
+</div>
+
+<style>
+  .hero {
+    text-align: center;
+    padding: 1.5rem 1rem;
+  }
+  .hero-img {
+    max-width: 100%;
+    max-height: 50vh;
+    border-radius: 8px;
+    display: block;
+    margin: 0 auto;
+  }
+  .hero-name {
+    margin: 0.75rem 0 0.5rem;
+  }
+  .hero-likes {
+    color: #eab308;
+    font-size: 1.25rem;
+  }
+  .hero-submit {
+    margin-top: 1rem;
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+</style>

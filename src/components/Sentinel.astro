@@ -1,0 +1,15 @@
+---
+interface Props {
+  url: string;
+}
+
+const { url } = Astro.props;
+---
+
+<div class="sentinel" hx-get={url} hx-trigger="revealed" hx-swap="afterend"></div>
+
+<style>
+  .sentinel {
+    height: 1px;
+  }
+</style>

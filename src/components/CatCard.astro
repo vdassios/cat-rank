@@ -1,0 +1,42 @@
+---
+import type { Cat } from '../db/schema';
+
+interface Props {
+  cat: Cat;
+}
+
+const { cat } = Astro.props;
+---
+
+<div class="cat-card" hx-get={`/api/cats/${cat.id}`} hx-target="#modal-body" hx-swap="innerHTML">
+  <img class="cat-card-thumb" src={cat.thumbnailPath} alt={cat.name} loading="lazy" />
+  <div class="cat-card-info">
+    <span>{cat.name}</span>
+    <span class="cat-card-count">{cat.likesCount} ★</span>
+  </div>
+</div>
+
+<style>
+  .cat-card {
+    cursor: pointer;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .cat-card-thumb {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+  .cat-card-info {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .cat-card-count {
+    color: #eab308;
+  }
+</style>

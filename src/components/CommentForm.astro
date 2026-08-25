@@ -1,0 +1,31 @@
+---
+interface Props {
+  catId: number;
+}
+
+const { catId } = Astro.props;
+---
+
+<form
+  class="comment-form"
+  hx-post={`/api/cats/${catId}/comments`}
+  hx-target="#comment-list"
+  hx-swap="innerHTML"
+>
+  <textarea class="comment-form-textarea" name="text" maxlength="500" rows="3" required></textarea>
+  <button type="submit" class="comment-form-btn">Post Comment</button>
+</form>
+
+<style>
+  .comment-form {
+    margin-top: 1rem;
+  }
+  .comment-form-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+  }
+  .comment-form-btn {
+    margin-top: 0.5rem;
+  }
+</style>

@@ -1,0 +1,52 @@
+---
+import type { Cat } from '../db/schema';
+
+interface Props {
+  cats: Cat[];
+}
+
+const { cats } = Astro.props;
+---
+
+<ol class="leaderboard">
+  {
+    cats.map((cat) => (
+      <li class="leaderboard-item">
+        <img class="leaderboard-thumb" src={cat.thumbnailPath} alt={cat.name} loading="lazy" />
+        <span class="leaderboard-name">{cat.name}</span>
+        <span class="leaderboard-likes">{cat.likesCount} ★</span>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .leaderboard {
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+  }
+  .leaderboard-item {
+    padding: 0.35rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .leaderboard-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .leaderboard-name {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .leaderboard-likes {
+    color: #eab308;
+    flex-shrink: 0;
+  }
+</style>
