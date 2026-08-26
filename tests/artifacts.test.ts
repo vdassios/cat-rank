@@ -24,7 +24,7 @@ function walk(dir: string): string[] {
  * the next top-level key. Compose indents services two spaces; service body is
  * four spaces. Returns the raw text of that service's block.
  */
-function composeServiceBlock(compose: string, name: string): string {
+function composeServiceBlock(_compose: string, name: string): string {
   const all = lines('docker-compose.yml');
   const start = all.findIndex((l) => l === `  ${name}:`);
   if (start === -1) return '';
