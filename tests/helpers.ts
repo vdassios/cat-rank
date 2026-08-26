@@ -1,5 +1,7 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import sharp from 'sharp';
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
 import { afterAll } from 'vitest';
 import { db, rawDb } from '../src/db/connection';
 
@@ -64,4 +66,23 @@ export async function makeImage(
   })
     [format]()
     .toBuffer();
+}
+
+/** Render an Astro partial-page route with the Container API. */
+export async function renderPartialRoute(
+  Page: AstroComponentFactory,
+  opts: {
+    request: Request;
+    params?: Record<string, string>;
+    locals?: Partial<App.Locals>;
+  },
+): Promise<Response> {
+  const container = await AstroContainer.create();
+  return container.renderToResponse(Page, {
+    routeType: 'page',
+    partial: true,
+    request: opts.request,
+    params: opts.params ?? {},
+    locals: { userToken: 'u1', clientIp: '1.1.1.1', ...opts.locals },
+  });
 }

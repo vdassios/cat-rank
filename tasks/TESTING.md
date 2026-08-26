@@ -354,8 +354,9 @@ Spec files and required cases:
 1. 10 MB + 1 byte file → 400 `File too large (max 10MB)`.
 2. random bytes named `x.jpg` → 400 `Unsupported format`.
 3. valid JPEG bytes named `x.gif` → 400 `Unsupported file type`.
-4. SVG (text buffer named `x.svg`, or svg mime) → 400 `SVG files not allowed`
-   (must not be masked by an earlier guard — craft to reach step 4).
+4. SVG (text buffer named `x.svg`, or svg mime) → 400 `Unsupported format`
+   (SVG has no raster magic bytes, so the MIME guard rejects it; there is no
+   `SVG files not allowed` response — see CONTRACTS §9).
 5. valid JPEG named `x.jpg`, `validateCat` → false → 400
    `We couldn't verify this is a cat`.
 6. Short-circuit: in case 2, `validateCat` was **never called**.
@@ -410,6 +411,7 @@ Spec files and required cases:
   why CONTRACTS §10 matches the `SQLITE_CONSTRAINT` **prefix** rather than one
   exact code. An implementation that compares against `'SQLITE_CONSTRAINT_UNIQUE'`
   alone fails this test — that is intended.
+
 - Success body shape: contains the refreshed first-10 list **and**
   `id="comment-form"` with `hx-swap-oob="true"` and the text `comment posted`;
   the response must not contain `id="comment-list"` at all (that container lives
@@ -427,7 +429,7 @@ Spec files and required cases:
 - GET `/api/cats/[id]`: 404 for missing id; for a liked cat the fragment
   reflects `liked`; for an already-commented user the form is replaced by the
   notice (`canComment` false).
-- **Per-cat scoping:** with user `u1` having liked *and* commented on cat 1,
+- **Per-cat scoping:** with user `u1` having liked _and_ commented on cat 1,
   `GET /api/cats/2` for the same user must render unliked and `canComment`
   true. This fails loudly if any handler chains `.where()` instead of using
   `and()` (CONTRACTS §8).
@@ -447,8 +449,9 @@ Spec files and required cases:
   ```
 
   A missing export silently turns every fragment into a full document.
+
 - `/api/submit-form` gets **no render test**. Rendering a `client:load` island
-  through the Container API requires registering the Preact server *and* client
+  through the Container API requires registering the Preact server _and_ client
   renderers on the container, which is more setup than it is worth here — the
   `partial` assertion above plus the T07 manual check (item 6) cover it. Do not
   add a dependency or a jsdom environment to test it.

@@ -12,7 +12,12 @@ const { cats } = Astro.props;
   {
     cats.map((cat) => (
       <li class="leaderboard-item">
-        <img class="leaderboard-thumb" src={cat.thumbnailPath} alt={cat.name} loading="lazy" />
+        <img
+          class="leaderboard-thumb"
+          src={cat.thumbnailPath}
+          alt={cat.name.replace(/<[^>]*>/g, '')}
+          loading="lazy"
+        />
         <span class="leaderboard-name">{cat.name}</span>
         <span class="leaderboard-likes">{cat.likesCount} ★</span>
       </li>

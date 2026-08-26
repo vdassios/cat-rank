@@ -12,7 +12,7 @@ const { cat } = Astro.props;
   {
     cat ? (
       <>
-        <img class="hero-img" src={cat.imagePath} alt={cat.name} />
+        <img class="hero-img" src={cat.imagePath} alt={cat.name.replace(/<[^>]*>/g, '')} />
         <h2 class="hero-name">{cat.name}</h2>
         <p class="hero-likes">{cat.likesCount} ★</p>
       </>

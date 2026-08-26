@@ -41,11 +41,6 @@ if (Astro.request.method === 'POST') {
     return new Response('Unsupported file type', { status: 400 });
   }
 
-  const head = buf.toString('utf-8', 0, Math.min(buf.length, 256)).toLowerCase().trimStart();
-  if (head.startsWith('<svg') || head.startsWith('<?xml')) {
-    return new Response('SVG files not allowed', { status: 400 });
-  }
-
   const isCat = await validateCat(buf);
   if (!isCat) {
     return new Response("We couldn't verify this is a cat", { status: 400 });

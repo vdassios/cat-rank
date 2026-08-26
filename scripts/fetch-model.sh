@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Download + SHA-256 verify the ONNX cat-validation model into the build context.
 # Idempotent: skips download if a valid cached copy already exists.
-# NB: target is models/ (non-public). Never put the model in public/ — Astro
-# copies public/ into dist/client and would serve it to the internet.
+# NB: target is models/ (non-public). Never put the model in the static-assets
+# directory — Astro copies that into the client bundle and would serve the
+# model to the internet.
 set -euo pipefail
 
 MODEL_DIR="models"

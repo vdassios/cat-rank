@@ -627,7 +627,7 @@ jobs:
 | File size          | ≤ 10 MB (nginx edge + app)                           | Reject "File too large (max 10MB)" |
 | Magic bytes        | `ffd8ff` (JPEG), `89504e47` (PNG), `52494646`+`WEBP` | Reject "Unsupported format"        |
 | Extension          | `.jpg`, `.jpeg`, `.png`, `.webp`                     | Reject "Unsupported file type"     |
-| SVG                | Forbidden (XSS risk)                                 | Reject "SVG files not allowed"     |
+| SVG                | Forbidden (XSS risk) — no raster magic bytes, so the magic-byte guard rejects it as `Unsupported format` | Reject "Unsupported format"        |
 | Decompression bomb | Sharp `limitInputPixels` (default on)                | Reject oversized canvases          |
 
 ### Magic byte validation

@@ -442,8 +442,11 @@ Upload guards run in this order, each returns `400` with this exact body text:
 1. size > 10 MB → `File too large (max 10MB)`
 2. `detectMime()` null OR not jpeg/png/webp → `Unsupported format`
 3. extension not in `.jpg/.jpeg/.png/.webp` → `Unsupported file type`
-4. SVG detected → `SVG files not allowed`
-5. `validateCat()` false → `We couldn't verify this is a cat`
+4. `validateCat()` false → `We couldn't verify this is a cat`
+
+SVG needs no dedicated guard: an SVG payload has no raster magic bytes, so
+`detectMime()` returns `null` and step 2 rejects it as `Unsupported format`.
+There is no `SVG files not allowed` response.
 
 Comment guards (`400` exact body):
 

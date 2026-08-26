@@ -9,7 +9,12 @@ const { cat } = Astro.props;
 ---
 
 <div class="cat-card" hx-get={`/api/cats/${cat.id}`} hx-target="#modal-body" hx-swap="innerHTML">
-  <img class="cat-card-thumb" src={cat.thumbnailPath} alt={cat.name} loading="lazy" />
+  <img
+    class="cat-card-thumb"
+    src={cat.thumbnailPath}
+    alt={cat.name.replace(/<[^>]*>/g, '')}
+    loading="lazy"
+  />
   <div class="cat-card-info">
     <span>{cat.name}</span>
     <span class="cat-card-count">{cat.likesCount} ★</span>
