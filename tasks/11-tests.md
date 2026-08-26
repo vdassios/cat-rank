@@ -37,7 +37,7 @@ master plan § Testing strategy.
 - > 10 MB → `File too large (max 10MB)`.
 - bad magic bytes → `Unsupported format`.
 - valid magic but wrong extension → `Unsupported file type`.
-- SVG → `SVG files not allowed`.
+- SVG → `Unsupported format` (no raster magic bytes; see CONTRACTS §9).
 - (mock `validateCat` to false) → `We couldn't verify this is a cat`.
 
 **`validateCat` thresholding (mock the ONNX session):**
