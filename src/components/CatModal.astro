@@ -16,7 +16,7 @@ interface Props {
 const { cat, liked, comments, nextPage, canComment } = Astro.props;
 ---
 
-<img class="cat-modal-img" src={cat.imagePath} alt={cat.name} />
+<img class="cat-modal-img" src={cat.imagePath} alt={cat.name.replace(/<[^>]*>/g, '')} />
 <div class="cat-modal-info">
   <div class="cat-modal-header">
     <h2 class="cat-modal-name">{cat.name}</h2>
