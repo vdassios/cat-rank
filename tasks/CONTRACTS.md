@@ -56,7 +56,9 @@ src/
 └── scripts/ui.ts               # client JS (built to dist/client/ui.js)
 scripts/migrate.ts              # drizzle migration runner (built → dist/scripts/migrate.mjs)
 scripts/fetch-model.sh          # CI: model → models/mobilenetv2-cat.onnx
+scripts/refresh-local.ts        # dev-only fixture refresh (Task 14; never in the image/CI)
 models/                         # ONNX model lands here (gitignored, non-public)
+test-cats/                      # local fixture photos (gitignored except README.md)
 deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh,backup-images.sh,restore-images.sh,verify-backup.sh,provision.sh,FIRST_DEPLOY.md}
 drizzle/migrations/
 tests/
@@ -69,21 +71,22 @@ tests/
 
 Read via `process.env`. Never hardcode these values.
 
-| Var                       | Used by                          | Example                                                                                                 |
-| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                | app                              | `production`                                                                                            |
-| `HOST`                    | app                              | `0.0.0.0`                                                                                               |
-| `PORT`                    | app                              | `3000`                                                                                                  |
-| `DATABASE_PATH`           | db/connection.ts                 | `/app/data/cats.db`                                                                                     |
-| `UPLOAD_DIR`              | images.ts, health                | `/var/lib/cat-ranking/uploads`                                                                          |
-| `ALLOWED_ORIGIN`          | csrf.ts                          | `https://yourdomain.com`                                                                                |
-| `HMAC_SECRET`             | auth.ts                          | (32-byte hex)                                                                                           |
-| `R2_ACCESS_KEY_ID`        | deploy/backups                   | —                                                                                                       |
-| `R2_SECRET_ACCESS_KEY`    | deploy/backups                   | —                                                                                                       |
-| `R2_ENDPOINT`             | deploy/backups                   | —                                                                                                       |
-| `HEALTHCHECK_IMAGES_URL`  | backup-images.sh                 | —                                                                                                       |
-| `HEALTHCHECK_RESTORE_URL` | verify-backup.sh                 | —                                                                                                       |
-| `IMAGE_TAG`               | docker-compose.yml (deploy only) | git sha; default `latest` — CI pins it in the VPS `.env` on every deploy (rollback = old sha + `up -d`) |
+| Var                       | Used by                                           | Example                                                                                                 |
+| ------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                | app                                               | `production`                                                                                            |
+| `HOST`                    | app                                               | `0.0.0.0`                                                                                               |
+| `PORT`                    | app                                               | `3000`                                                                                                  |
+| `DATABASE_PATH`           | db/connection.ts                                  | `/app/data/cats.db`                                                                                     |
+| `UPLOAD_DIR`              | images.ts, health                                 | `/var/lib/cat-ranking/uploads`                                                                          |
+| `ALLOWED_ORIGIN`          | csrf.ts                                           | `https://yourdomain.com`                                                                                |
+| `HMAC_SECRET`             | auth.ts                                           | (32-byte hex)                                                                                           |
+| `LOCAL_DEV`               | csrf.ts, auth.ts, middleware.ts, refresh-local.ts | `1` — local dev only; **never set by `docker-compose.yml`, `deploy/`, or CI**                           |
+| `R2_ACCESS_KEY_ID`        | deploy/backups                                    | —                                                                                                       |
+| `R2_SECRET_ACCESS_KEY`    | deploy/backups                                    | —                                                                                                       |
+| `R2_ENDPOINT`             | deploy/backups                                    | —                                                                                                       |
+| `HEALTHCHECK_IMAGES_URL`  | backup-images.sh                                  | —                                                                                                       |
+| `HEALTHCHECK_RESTORE_URL` | verify-backup.sh                                  | —                                                                                                       |
+| `IMAGE_TAG`               | docker-compose.yml (deploy only)                  | git sha; default `latest` — CI pins it in the VPS `.env` on every deploy (rollback = old sha + `up -d`) |
 
 Derived (set inside docker-compose.yml, never by hand): the **app** and
 **litestream** services both receive `LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}`
@@ -93,6 +96,9 @@ so the app container needs them too.
 
 For local dev defaults: `DATABASE_PATH=./data/cats.db`,
 `UPLOAD_DIR=./data/uploads`, `ALLOWED_ORIGIN=http://localhost:4321`.
+The local workflow (`npm run dev:local` / `npm run local:refresh`, Tasks 13–14)
+uses `UPLOAD_DIR=./public/uploads` instead, so `astro dev` serves the processed
+images at `/uploads/*`.
 
 ---
 
@@ -170,12 +176,20 @@ export const COOKIE_OPTS: {
 };
 ```
 
+Local-dev amendment (`LOCAL_DEV=1`, Task 13): the signing secret resolves as
+`HMAC_SECRET` if set; else, if `process.env.LOCAL_DEV === '1'`, the fixed string
+`local-dev-insecure`; else the module throws at import exactly as before.
+`COOKIE_NAME`, `COOKIE_OPTS`, and all four function signatures are unchanged.
+
 ### `src/lib/csrf.ts`
 
 ```ts
 // true if request Origin/Referer matches process.env.ALLOWED_ORIGIN
 export function checkOrigin(request: Request): boolean;
 ```
+
+Local-dev amendment (`LOCAL_DEV=1`, Task 13): `checkOrigin()` returns `true`
+immediately when `process.env.LOCAL_DEV === '1'`, before any header inspection.
 
 ### `src/lib/semaphore.ts`
 
@@ -248,6 +262,10 @@ declare namespace App {
   }
 }
 ```
+
+Local-dev amendment (`LOCAL_DEV=1`, Task 13): when
+`process.env.LOCAL_DEV === '1'`, skip all cookie read/verify/issue/set logic and
+set `locals.userToken = 'local-dev-user'`; `clientIp` resolution is unchanged.
 
 ---
 
@@ -546,3 +564,13 @@ scripts in `scripts/` are bundled separately:
   image (the Dockerfile copies it).
 - `src/scripts/ui.ts` (Task 07) is client-side; it is served at `/ui.js` —
   Task 07 decides whether to emit it via the bundler or ship `public/ui.js`.
+- Local-dev workflow scripts (Task 14) — added to `package.json` verbatim:
+
+  ```json
+  "local:model": "bash scripts/fetch-model.sh",
+  "local:refresh": "npm run build:scripts && node dist/scripts/migrate.mjs && LOCAL_DEV=1 UPLOAD_DIR=./public/uploads node dist/scripts/refresh-local.mjs",
+  "dev:local": "LOCAL_DEV=1 UPLOAD_DIR=./public/uploads astro dev"
+  ```
+
+  `scripts/refresh-local.ts` is bundled by the existing `build:scripts` glob
+  (→ `dist/scripts/refresh-local.mjs`); no build-pipeline changes are needed.

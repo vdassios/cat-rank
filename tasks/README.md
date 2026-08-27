@@ -48,6 +48,10 @@ interfaces before those are implemented.
              ├─► 08-deploy-artifacts┐
              ├─► 09-cicd           ├─► 12-host-setup
              └─► 10-backup-scripts ┘
+
+# post-core, dev-only (run after 00–12):
+02 + 11 ─► 13-local-dev-bypass ─► 14-local-refresh
+01 + 03 + 04 + 09 ──────────────► 14-local-refresh
 ```
 
 - **Must run first:** `00-scaffold` (creates the project, configs, and the
@@ -58,25 +62,34 @@ interfaces before those are implemented.
 - **11-tests** is written last; it exercises 01, 02, 03, 05.
 - **12-host-setup** needs 08, 09, 10 (its provision script + first-deploy
   checklist reference their artifacts by name).
+- **13-local-dev-bypass** and **14-local-refresh** are dev-only, **post-core**
+  additions — run them only after 00–12 are complete. Task 13 is explicitly
+  permitted to modify files owned by Tasks 02/11, and Task 14 is explicitly
+  permitted to add exactly the three CONTRACTS §12 npm scripts to
+  `package.json` (Task 00) and two lines to `.gitignore`; each exception is
+  granted inside the task file itself, so the "stay in your lane" rule still
+  holds everywhere else.
 
 ## Task list
 
-| #   | Task                                         | Owns                                                                                                | Prereqs        |
-| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------- |
-| 00  | [Project scaffold](./00-scaffold.md)         | configs, dir skeleton, htmx, `.dockerignore`                                                        | —              |
-| 01  | [Database layer](./01-database.md)           | `src/db/*`, migrations                                                                              | 00             |
-| 02  | [Auth & security](./02-auth-security.md)     | `src/lib/{auth,csrf,semaphore,rateLimit}.ts`, `src/middleware.ts`                                   | 00             |
-| 03  | [Image validation](./03-image-validation.md) | `src/validation/*`                                                                                  | 00             |
-| 04  | [Image processing](./04-image-processing.md) | `src/lib/images.ts`                                                                                 | 00             |
-| 05  | [API routes](./05-api-routes.md)             | `src/pages/api/*` (`.astro` partials), `src/pages/health.ts`                                        | 00,01,02,03,04 |
-| 06  | [UI components](./06-ui-components.md)       | `src/components/*`, `src/pages/index.astro`                                                         | 00             |
-| 07  | [Frontend JS](./07-frontend-js.md)           | `src/scripts/ui.ts`                                                                                 | 06             |
-| 08  | [Deploy artifacts](./08-deploy-artifacts.md) | `docker-compose.yml` (**repo root**), `deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh}` | 00             |
-| 09  | [CI/CD](./09-cicd.md)                        | `.github/workflows/deploy.yml`, `scripts/fetch-model.sh`                                            | 00             |
-| 10  | [Backup scripts](./10-backup-scripts.md)     | `deploy/{backup-images,restore-images,verify-backup}.sh`                                            | 00             |
-| 11  | [Tests](./11-tests.md)                       | `tests/*`                                                                                           | 01,02,03,05    |
-| 12  | [Host setup](./12-host-setup.md)             | `deploy/provision.sh`, `deploy/FIRST_DEPLOY.md`                                                     | 08,09,10       |
-| —   | [Sample data (dev only)](./SEED.md)          | `scripts/seed.ts`                                                                                   | 01             |
+| #   | Task                                                    | Owns                                                                                                                           | Prereqs        |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| 00  | [Project scaffold](./00-scaffold.md)                    | configs, dir skeleton, htmx, `.dockerignore`                                                                                   | —              |
+| 01  | [Database layer](./01-database.md)                      | `src/db/*`, migrations                                                                                                         | 00             |
+| 02  | [Auth & security](./02-auth-security.md)                | `src/lib/{auth,csrf,semaphore,rateLimit}.ts`, `src/middleware.ts`                                                              | 00             |
+| 03  | [Image validation](./03-image-validation.md)            | `src/validation/*`                                                                                                             | 00             |
+| 04  | [Image processing](./04-image-processing.md)            | `src/lib/images.ts`                                                                                                            | 00             |
+| 05  | [API routes](./05-api-routes.md)                        | `src/pages/api/*` (`.astro` partials), `src/pages/health.ts`                                                                   | 00,01,02,03,04 |
+| 06  | [UI components](./06-ui-components.md)                  | `src/components/*`, `src/pages/index.astro`                                                                                    | 00             |
+| 07  | [Frontend JS](./07-frontend-js.md)                      | `src/scripts/ui.ts`                                                                                                            | 06             |
+| 08  | [Deploy artifacts](./08-deploy-artifacts.md)            | `docker-compose.yml` (**repo root**), `deploy/{Dockerfile,nginx.conf,litestream.yml,entrypoint.sh}`                            | 00             |
+| 09  | [CI/CD](./09-cicd.md)                                   | `.github/workflows/deploy.yml`, `scripts/fetch-model.sh`                                                                       | 00             |
+| 10  | [Backup scripts](./10-backup-scripts.md)                | `deploy/{backup-images,restore-images,verify-backup}.sh`                                                                       | 00             |
+| 11  | [Tests](./11-tests.md)                                  | `tests/*`                                                                                                                      | 01,02,03,05    |
+| 12  | [Host setup](./12-host-setup.md)                        | `deploy/provision.sh`, `deploy/FIRST_DEPLOY.md`                                                                                | 08,09,10       |
+| 13  | [Local dev bypass (dev only)](./13-local-dev-bypass.md) | scoped edits to `src/lib/{csrf,auth}.ts`, `src/middleware.ts`, `tests/{csrf,auth,middleware}.test.ts`                          | 02,11          |
+| 14  | [Local refresh (dev only)](./14-local-refresh.md)       | `scripts/refresh-local.ts`, `test-cats/README.md`, `tests/refreshLocal.test.ts`, scoped edits to `package.json` + `.gitignore` | 01,03,04,09,13 |
+| —   | [Sample data (dev only)](./SEED.md)                     | `scripts/seed.ts`                                                                                                              | 01             |
 
 > `.env.example` and `.gitignore` already exist at the repo root — do not
 > recreate them.

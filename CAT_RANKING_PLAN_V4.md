@@ -254,7 +254,7 @@ runbook works from `/opt/cat-ranking`, and all relative mounts resolve there.
 x-logging: &logging
   driver: json-file
   options:
-    max-size: '10m'
+    max-size: 10m
     max-file: '3'
 
 services:
@@ -285,7 +285,7 @@ services:
       - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      test: [CMD, curl, -f, http://localhost:3000/health]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -302,7 +302,7 @@ services:
     environment:
       - LITESTREAM_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - LITESTREAM_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-    command: ['replicate']
+    command: [replicate]
     depends_on:
       app:
         # App health requires a writable DB, i.e. the entrypoint restore is
@@ -314,8 +314,8 @@ services:
     restart: always
     logging: *logging
     ports:
-      - '80:80'
-      - '443:443'
+      - 80:80
+      - 443:443
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - uploads:/var/www/uploads:ro
@@ -334,7 +334,7 @@ services:
     # Initial issuance uses --standalone BEFORE the stack runs (FIRST_DEPLOY).
     # Renewals MUST override to webroot: nginx owns port 80 from then on, so a
     # standalone renewal (the recorded authenticator) would fail to bind.
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'
 
   backup-images:
     image: rclone/rclone:1.67
@@ -350,7 +350,7 @@ services:
       - RCLONE_CONFIG_R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - HEALTHCHECK_IMAGES_URL=${HEALTHCHECK_IMAGES_URL}
-    entrypoint: "/bin/sh -c 'while :; do /backup-images.sh; sleep 86400; done'"
+    entrypoint: /bin/sh -c 'while :; do /backup-images.sh; sleep 86400; done'
 
 volumes:
   uploads:
@@ -908,13 +908,13 @@ UptimeRobot + two healthchecks.io checks → perform one restore drill.
 
 ### Guards (enforced before ONNX, fail fast)
 
-| Check              | Limit                                                | Action                             |
-| ------------------ | ---------------------------------------------------- | ---------------------------------- |
-| File size          | ≤ 10 MB (nginx edge + app)                           | Reject "File too large (max 10MB)" |
-| Magic bytes        | `ffd8ff` (JPEG), `89504e47` (PNG), `52494646`+`WEBP` | Reject "Unsupported format"        |
-| Extension          | `.jpg`, `.jpeg`, `.png`, `.webp`                     | Reject "Unsupported file type"     |
+| Check              | Limit                                                                                                    | Action                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| File size          | ≤ 10 MB (nginx edge + app)                                                                               | Reject "File too large (max 10MB)" |
+| Magic bytes        | `ffd8ff` (JPEG), `89504e47` (PNG), `52494646`+`WEBP`                                                     | Reject "Unsupported format"        |
+| Extension          | `.jpg`, `.jpeg`, `.png`, `.webp`                                                                         | Reject "Unsupported file type"     |
 | SVG                | Forbidden (XSS risk) — no raster magic bytes, so the magic-byte guard rejects it as `Unsupported format` | Reject "Unsupported format"        |
-| Decompression bomb | Sharp `limitInputPixels` (default on)                | Reject oversized canvases          |
+| Decompression bomb | Sharp `limitInputPixels` (default on)                                                                    | Reject oversized canvases          |
 
 ### Magic byte validation
 
@@ -1318,6 +1318,35 @@ SQLite, no ONNX/network):
 
 ---
 
+## Local development workflow (native, no Docker)
+
+Three npm scripts run the whole site locally against real photos — no Docker,
+no nginx, no secrets:
+
+- `npm run local:model` — fetch the ONNX model once (`scripts/fetch-model.sh`).
+- `npm run local:refresh` — rebuild the local dataset from photos in
+  `test-cats/` through the real production pipeline (§9 guards + ONNX + Sharp +
+  SQLite): every file is validated first; only if all pass are the previous
+  rows and generated WebPs replaced. Any failure leaves the prior dataset
+  intact.
+- `npm run dev:local` — `astro dev` with the local env; browse, like, comment,
+  and upload at `http://localhost:4321`.
+
+Data lifecycle: `test-cats/` (gitignored fixture photos) → `data/cats.db` +
+`public/uploads/*.webp` (both gitignored; `astro dev` serves `/uploads/*`).
+
+Both commands set `LOCAL_DEV=1`, which skips the CSRF Origin check, cookie
+signing/verification (every request gets the fixed `local-dev-user` token), and
+the `HMAC_SECRET` requirement (fixed fallback secret). The flag is opt-in and
+**never** set by `docker-compose.yml`, `deploy/`, or CI — with it unset,
+behavior is bit-identical to production, proven by the existing test suite.
+
+Authoritative specs: `tasks/13-local-dev-bypass.md`,
+`tasks/14-local-refresh.md`, and `tasks/CONTRACTS.md` (§2, §3, §5, §12) — this
+section is context only and does not restate their algorithms.
+
+---
+
 ## File structure
 
 ```
@@ -1357,8 +1386,10 @@ src/
 public/
 └── htmx.min.js                  self-hosted, pinned + SRI (astro copies → dist/client)
 models/                          mobilenetv2-cat.onnx (fetched in CI, gitignored, NOT public/)
+test-cats/                       local fixture photos (gitignored except README.md)
 scripts/
 ├── migrate.ts                   drizzle migrations (built → dist/scripts/migrate.mjs)
+├── refresh-local.ts             dev-only fixture refresh (Task 14; never in the image/CI)
 └── fetch-model.sh               CI: curl + sha256sum → models/
 deploy/
 ├── Dockerfile
@@ -1475,6 +1506,13 @@ External binaries (via pinned Docker images): `nginx:1.27-alpine`,
 - [ ] `FIRST_DEPLOY.md` checklist: .env, GHCR access, standalone cert, `up -d`
 - [ ] Litestream + rclone backups live; verify-backup cron (installed by provision.sh)
 - [ ] UptimeRobot + healthchecks.io; test the restore runbook incl. `restore-images.sh`
+
+### Phase 8 — Local dev workflow (Tasks 13–14)
+
+- [ ] `LOCAL_DEV=1` bypass in `csrf.ts`/`auth.ts`/middleware + flag-state tests (Task 13)
+- [ ] `scripts/refresh-local.ts` validate-first fixture refresh + `test-cats/` + `tests/refreshLocal.test.ts` (Task 14)
+- [ ] npm scripts `local:model` / `local:refresh` / `dev:local` (CONTRACTS §12)
+- [ ] Manual e2e: fetch model, refresh twice, browse/like/comment, real upload → `HX-Redirect: /`
 
 ---
 
