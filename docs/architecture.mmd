@@ -1,0 +1,27 @@
+flowchart TB
+  Developer[Developer push] --> Actions[GitHub Actions]
+  Actions -->|test and build| GHCR[GHCR image]
+  Actions -->|SSH deploy| Compose[Docker Compose on VPS]
+  GHCR --> Compose
+
+  Browser[Browser] -->|HTTPS and HTMX| Nginx[nginx]
+  Nginx -->|SSR and partial requests| Astro[Astro + Node]
+  Astro -->|HTML + Preact island| Browser
+
+  Astro --> Guards[Upload guards]
+  Guards --> ONNX[ONNX Runtime + MobileNetV2]
+  ONNX --> Sharp[Sharp image pipeline]
+  Sharp --> Uploads[(Uploads volume)]
+  Nginx -->|serve WebP directly| Uploads
+
+  Astro --> Drizzle[Drizzle ORM]
+  Drizzle --> SQLite[(SQLite WAL)]
+  SQLite --> Litestream[Litestream]
+  Uploads --> Rclone[rclone]
+  Litestream --> R2[(Cloudflare R2)]
+  Rclone --> R2
+  Certbot[Certbot] -->|TLS certificates| Nginx
+  Compose -. manages .-> Nginx
+  Compose -. manages .-> Astro
+  Compose -. manages .-> Litestream
+  Compose -. manages .-> Rclone

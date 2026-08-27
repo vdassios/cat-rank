@@ -1,0 +1,23 @@
+flowchart TB
+  Upload[Browser uploads image] --> Guards[Check trusted origin, file presence, and 10 MB limit]
+  Guards --> Mime[Inspect magic bytes and filename extension]
+  Mime --> Format{JPEG, PNG, or WebP?}
+  Format -->|no| Reject[Reject upload]
+
+  Format -->|yes| ModelSharp[Sharp: crop to 224 x 224, remove alpha, convert to sRGB]
+  ModelSharp --> Tensor[Normalize pixels into a 1 x 3 x 224 x 224 NCHW tensor]
+  Tensor --> ONNX[MobileNetV2 inference with ONNX Runtime]
+  ONNX --> Score[Softmax logits and sum five ImageNet cat classes]
+  Score --> Cat{Combined score at least 0.20?}
+  Cat -->|no| Reject
+
+  Cat -->|yes| UUID[Generate UUID storage key]
+  UUID --> DeliverySharp[Sharp: honour orientation and encode WebP]
+  DeliverySharp --> Variants[300 px thumbnail at quality 80 and 1200 x 1200 full image at quality 85]
+  Variants --> Volume[(Uploads volume)]
+  Volume --> Database[(SQLite stores generated paths)]
+  Database --> Redirect[HTMX redirect to updated leaderboard]
+
+  Guards -. validation failure .-> Reject
+  DeliverySharp -. processing failure .-> Cleanup[Delete partial generated files]
+  Database -. insert failure .-> Cleanup

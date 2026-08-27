@@ -1,0 +1,27 @@
+flowchart TB
+  subgraph Live[Live application data]
+    direction LR
+    App[Astro application] --> Drizzle[Drizzle ORM]
+    Drizzle --> Driver[better-sqlite3]
+    Driver --> WAL[(SQLite database and WAL)]
+    Sharp[Sharp pipeline] --> Uploads[(Uploads volume)]
+  end
+
+  subgraph Remote[Cloudflare R2 backups]
+    direction LR
+    Litestream[Litestream sidecar] -->|continuous replicas and 6-hour snapshots| DatabaseBackup[(Database history)]
+    Rclone[rclone sidecar] --> CurrentImages[(Current uploads)]
+    Rclone --> ArchiveImages[(Timestamped archive)]
+  end
+
+  subgraph Recovery[Restore and verification]
+    direction LR
+    DatabaseBackup -->|database missing at startup| RestoreDB[Litestream restore]
+    RestoreDB --> RestoredDB[(Recovered SQLite)]
+    DatabaseBackup -->|nightly temporary restore| Integrity[SQLite integrity check]
+    Integrity --> Monitoring[Backup health check]
+    CurrentImages -->|disaster-recovery script| RestoreImages[Restored uploads volume]
+  end
+
+  WAL -->|changes every 1 second| Litestream
+  Uploads -->|daily read-only copy| Rclone
