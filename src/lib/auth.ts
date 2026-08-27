@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import { sign as cookieSign, unsign as cookieUnsign } from 'cookie-signature';
 
-if (!process.env.HMAC_SECRET) {
+function resolveSecret(): string {
+  if (process.env.HMAC_SECRET) return process.env.HMAC_SECRET;
+  if (process.env.LOCAL_DEV === '1') return 'local-dev-insecure';
   throw new Error('HMAC_SECRET environment variable is required');
 }
 
-const SECRET: string = process.env.HMAC_SECRET;
+const SECRET: string = resolveSecret();
 
 export function issueToken(): string {
   return crypto.randomUUID();

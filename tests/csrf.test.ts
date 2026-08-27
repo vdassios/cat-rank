@@ -40,3 +40,15 @@ describe('checkOrigin (CONTRACTS §5)', () => {
     expect(checkOrigin(req({ Origin: 'not a url' }))).toBe(false);
   });
 });
+
+describe('checkOrigin with LOCAL_DEV=1', () => {
+  it('accepts a request with no headers', () => {
+    vi.stubEnv('LOCAL_DEV', '1');
+    expect(checkOrigin(req({}))).toBe(true);
+  });
+
+  it('skips header inspection entirely, even for a foreign Origin', () => {
+    vi.stubEnv('LOCAL_DEV', '1');
+    expect(checkOrigin(req({ Origin: 'https://evil.example' }))).toBe(true);
+  });
+});

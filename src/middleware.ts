@@ -5,6 +5,11 @@ export const onRequest = defineMiddleware((context, next) => {
   const realIp = context.request.headers.get('X-Real-IP');
   context.locals.clientIp = realIp ?? context.clientAddress;
 
+  if (process.env.LOCAL_DEV === '1') {
+    context.locals.userToken = 'local-dev-user';
+    return next();
+  }
+
   const cookieValue = context.cookies.get(COOKIE_NAME)?.value;
   let token: string;
 

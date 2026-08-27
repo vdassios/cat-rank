@@ -1,5 +1,5 @@
 import type { APIContext, MiddlewareNext } from 'astro';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COOKIE_NAME, COOKIE_OPTS, signToken, verifyToken } from '../src/lib/auth';
 
 // astro:middleware is a virtual module that only exists inside an Astro
@@ -95,6 +95,43 @@ describe('chain', () => {
   it('calls next exactly once and returns its response', async () => {
     const { context, next, nextSpy } = makeContext();
     const response = await onRequest(context, next);
+    expect(nextSpy).toHaveBeenCalledTimes(1);
+    expect(await (response as Response).text()).toBe('downstream');
+  });
+});
+
+describe('LOCAL_DEV=1 bypass', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('sets a fixed token and never sets a cookie', async () => {
+    vi.stubEnv('LOCAL_DEV', '1');
+    const { context, next, locals, cookies } = makeContext();
+    await onRequest(context, next);
+
+    expect(locals.userToken).toBe('local-dev-user');
+    expect(cookies.set).not.toHaveBeenCalled();
+  });
+
+  it('leaves client IP resolution unchanged', async () => {
+    vi.stubEnv('LOCAL_DEV', '1');
+    const { context, next, locals } = makeContext({ headers: { 'X-Real-IP': '203.0.113.7' } });
+    await onRequest(context, next);
+
+    expect(locals.clientIp).toBe('203.0.113.7');
+  });
+
+  it('ignores a valid signed cookie and calls next exactly once', async () => {
+    vi.stubEnv('LOCAL_DEV', '1');
+    const token = '11111111-2222-3333-4444-555555555555';
+    const { context, next, nextSpy, locals, cookies } = makeContext({
+      cookie: signToken(token),
+    });
+    const response = await onRequest(context, next);
+
+    expect(locals.userToken).toBe('local-dev-user');
+    expect(cookies.set).not.toHaveBeenCalled();
     expect(nextSpy).toHaveBeenCalledTimes(1);
     expect(await (response as Response).text()).toBe('downstream');
   });

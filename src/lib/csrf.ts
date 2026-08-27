@@ -1,4 +1,5 @@
 export function checkOrigin(request: Request): boolean {
+  if (process.env.LOCAL_DEV === '1') return true;
   const origin = request.headers.get('Origin') ?? request.headers.get('Referer');
   if (!origin) return false;
   try {

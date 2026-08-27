@@ -47,6 +47,37 @@ describe('token signing', () => {
   });
 });
 
+describe('LOCAL_DEV=1 dev fallback secret', () => {
+  it('loads with the fallback secret and round-trips', async () => {
+    const saved = process.env.HMAC_SECRET;
+    vi.resetModules();
+    delete process.env.HMAC_SECRET;
+    process.env.LOCAL_DEV = '1';
+    try {
+      const auth = await import('../src/lib/auth');
+      const t = auth.issueToken();
+      expect(auth.verifyToken(auth.signToken(t))).toBe(t);
+    } finally {
+      process.env.HMAC_SECRET = saved;
+      delete process.env.LOCAL_DEV;
+      vi.resetModules();
+    }
+  });
+
+  it('still throws when both HMAC_SECRET and LOCAL_DEV are unset', async () => {
+    const saved = process.env.HMAC_SECRET;
+    vi.resetModules();
+    delete process.env.HMAC_SECRET;
+    delete process.env.LOCAL_DEV;
+    try {
+      await expect(import('../src/lib/auth')).rejects.toThrow(/HMAC_SECRET/);
+    } finally {
+      process.env.HMAC_SECRET = saved;
+      vi.resetModules();
+    }
+  });
+});
+
 describe('createIpUaHash (CONTRACTS §5)', () => {
   it('returns 32 lowercase hex chars', () => {
     expect(createIpUaHash('1.2.3.4', 'UA')).toMatch(/^[0-9a-f]{32}$/);
