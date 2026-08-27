@@ -14,7 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node dist/scripts/migrate.mjs"
+    "db:migrate": "node dist/scripts/migrate.mjs",
+    "local:model": "bash scripts/fetch-model.sh",
+    "local:refresh": "npm run build:scripts && node dist/scripts/migrate.mjs && LOCAL_DEV=1 UPLOAD_DIR=./public/uploads node dist/scripts/refresh-local.mjs",
+    "dev:local": "LOCAL_DEV=1 UPLOAD_DIR=./public/uploads astro dev"
   },
   "dependencies": {
     "@astrojs/node": "^9",

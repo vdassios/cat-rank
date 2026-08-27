@@ -30,3 +30,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+test-cats/*
+!test-cats/README.md
